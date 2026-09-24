@@ -10,6 +10,7 @@ import { Audio, GYM_STATIONS } from './audio.js';
 import { Character } from './character.js';
 import { buildCity, buildHome, buildGym, buildShop, buildBank } from './world.js';
 import { UI, effectsHtml, ICONS } from './ui.js';
+import { SpotifyStation } from './spotify.js';
 import { squatGame, benchGame, latGame, workGame, planeGame } from './minigames.js';
 
 const WORK_STAMINA = 20;
@@ -128,7 +129,14 @@ let broDay = -1;
 let station = Math.max(0, GYM_STATIONS.findIndex((st) => st.id === store.get(RADIO_KEY)));
 
 // The gym plays the selected radio station, other places their own music
+const spotify = new SpotifyStation();
 const musicFor = (p) => (p.name === 'gym' ? GYM_STATIONS[station].id : p.music);
+
+// shows the Spotify player only in the gym with the Spotify station selected
+function syncSpotify() {
+  if (place.name === 'gym' && GYM_STATIONS[station].external && mode !== 'title') spotify.show();
+  else spotify.hide();
+}
 
 const player = new Character({ shirtless: true, shorts: 0x1b1d22 });
 const pos = new THREE.Vector3();
@@ -236,7 +244,13 @@ function setPlace(id, spawn) {
   cam.snap = true;
   player.setPose('idle');
   audio.play(musicFor(place));
-  if (place.name === 'gym') setTimeout(() => ui.toast(`Gym radio: ${GYM_STATIONS[station].name} (press R to switch)`), 600);
+  syncSpotify();
+  if (place.name === 'gym') {
+    const st = GYM_STATIONS[station];
+    setTimeout(() => ui.toast(st.external
+      ? 'Gym radio: your Spotify playlist. Press play on the player (R to switch station)'
+      : `Gym radio: ${st.name} (press R to switch)`), 600);
+  }
 }
 
 function nextStation() {
@@ -248,6 +262,7 @@ function nextStation() {
   store.set(RADIO_KEY, GYM_STATIONS[station].id);
   audio.sfx('radio');
   audio.play(musicFor(place));
+  syncSpotify();
   ui.toast(`Now playing: ${GYM_STATIONS[station].name}`, 'good');
 }
 
@@ -469,6 +484,7 @@ function endMinigame() {
   heading = saved.heading;
   player.setPose('idle');
   audio.play(musicFor(place));
+  syncSpotify();
 }
 
 function startWorkout(ex, level) {
@@ -623,6 +639,7 @@ function endGame(win, reason) {
       scores.slice(0, 5).map((s, i) => `${i + 1}. ${s.days} days (${s.diff}), ${s.date}`).join('<br>') + '</div>';
   }
   audio.play(win ? 'win' : 'gameover');
+  spotify.hide();
   player.setPose(win ? 'flex' : 'idle');
   heading = cam.yaw + Math.PI;
   setTimeout(() => {
@@ -684,6 +701,7 @@ function showTitle() {
   if (place !== places.city) setPlace('city');
   pos.set(-19, 0, -10.4);
   audio.play('title');
+  spotify.hide();
   const save = store.get(SAVE_KEY);
   const btns = Object.entries(DIFFICULTIES).map(([id, d], i) => ({
     label: `${d.label}<small>${d.days} days</small>`,
