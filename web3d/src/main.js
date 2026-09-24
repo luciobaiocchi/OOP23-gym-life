@@ -11,6 +11,7 @@ import { Character } from './character.js';
 import { buildCity, buildHome, buildGym, buildShop, buildBank } from './world.js';
 import { UI, effectsHtml, ICONS } from './ui.js';
 import { SpotifyStation } from './spotify.js';
+import { TV_VIDEOS, embedUrl, thumbUrl } from './tv.js';
 import { squatGame, benchGame, latGame, workGame, planeGame } from './minigames.js';
 
 const WORK_STAMINA = 20;
@@ -396,15 +397,36 @@ function talkToBro() {
 }
 
 function watchTv() {
+  mode = 'busy';
+  const box = ui.open(`<h2>Gym legends TV</h2><p>Ronnie Coleman, CBum and Zyzz: pick a video.</p>
+    <div class="thumbs">${TV_VIDEOS.map((id, i) => `<button class="thumb" data-i="${i}" title="Video ${i + 1}">
+      <img src="${thumbUrl(id)}" alt="Video ${i + 1}" loading="lazy"><span>${i + 1}</span></button>`).join('')}</div>
+    <div class="btns"><button class="btn" id="tv-close">Close <small>[Esc]</small></button></div>`, { cls: 'tvbox' });
+  box.querySelectorAll('.thumb').forEach((b) => { b.onclick = () => { audio.sfx('click'); playVideo(TV_VIDEOS[Number(b.dataset.i)], Number(b.dataset.i) + 1); }; });
+  box.querySelector('#tv-close').onclick = () => { ui.close(); mode = 'play'; };
+  ui.panelKeys = { Escape: box.querySelector('#tv-close') };
+}
+
+// first TV of the day gives mood
+function tvMood() {
   const day = state.totalDays - state.days;
-  if (tvDay === day) {
-    ui.toast('You already watched TV today. Go train!', 'bad');
-    return;
-  }
+  if (tvDay === day) return;
   tvDay = day;
   state.apply({ happiness: 10 });
   audio.sfx('good');
-  ui.toast('A good episode of your favourite show: +10 mood', 'good');
+  ui.toast('Motivation boost: +10 mood', 'good');
+}
+
+function playVideo(id, n) {
+  audio.play('tv'); // the game's music goes quiet while the video plays
+  const box = ui.open(`<h2>Gym legends TV: video ${n}</h2>
+    <div class="video"><iframe src="${embedUrl(id)}" title="Video ${n}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+    <div class="btns"><button class="btn" id="tv-back">Other videos</button><button class="btn primary" id="tv-close">Close <small>[Esc]</small></button></div>`, { cls: 'tvbox' });
+  const stop = () => { audio.play(musicFor(place)); };
+  box.querySelector('#tv-back').onclick = () => { stop(); watchTv(); };
+  box.querySelector('#tv-close').onclick = () => { stop(); ui.close(); mode = 'play'; };
+  ui.panelKeys = { Escape: box.querySelector('#tv-close') };
+  tvMood();
 }
 
 function mirror() {
@@ -500,7 +522,7 @@ function startWorkout(ex, level) {
       pos.set(group.position.x, 0, group.position.z);
       heading = 0;
       player.spine.add(barbell);
-      barbell.position.set(0, 0.52, -0.14);
+      barbell.position.set(0, 0.42, -0.12);
       restore = () => { group.add(barbell); barbell.position.set(0, 1.5, 0); };
       camPos = V(group.position.x + 3.2, 2.2, group.position.z + 4.2);
       camLook = V(group.position.x, 1.0, group.position.z);
@@ -718,6 +740,10 @@ function showTitle() {
     <p>Become the biggest bodybuilder in town. Train, eat well, earn money and keep your spirits up.</p>
     ${controlsHtml()}
     <p style="color:var(--muted)">Choose the difficulty:</p>`, btns);
+  const credits = document.createElement('p');
+  credits.className = 'scores';
+  credits.innerHTML = 'Character model: <a href="https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1" target="_blank" rel="noopener">"Male Body" by Alexander Antipov</a>, <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (rigged and modified)';
+  document.querySelector('#panel .box').appendChild(credits);
 }
 
 // ---------------------------------------------------------------- LOOP

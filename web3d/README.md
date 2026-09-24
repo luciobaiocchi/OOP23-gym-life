@@ -38,7 +38,8 @@ On touch devices a virtual joystick and an **E** button appear.
 
 - **Engine: [Three.js](https://threejs.org/) (WebGL).** Runs in any browser without plugins or installs, including older PCs with integrated graphics.
 - **Graphics:** physically based materials, ACES tone mapping, a physical sky that also lights the scene, soft shadows and, on high quality, ambient occlusion. All textures (asphalt, brick, plaster, wood, marble, grass...) are generated procedurally at startup, so there are no image files to download.
-- **Characters:** sculpted from code. The body is a signed distance field built from anatomical muscles (pecs, six-pack, obliques, serratus, lats, traps, spinal erectors, three deltoid heads, biceps, triceps, forearms, quads with the teardrop, hamstrings, calves) blended with tight creases so each muscle stays readable, polygonised with surface nets, shaded with baked cavity occlusion and bound to a skeleton. Head, hands with fingers and sneakers are finer rigid meshes. The player trains shirtless so the physique shows, and the body is rebuilt as the muscles grow.
+- **Characters:** based on the ["Male Body" model by Alexander Antipov](https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Changes made for the game: welded vertices and smooth normals, an automatic skeleton and skin weights, region-based muscle growth driven by the stats, and clothes, sneakers and a buzz cut painted as vertex colours. The model is embedded in `game.js`, so the game still works offline.
+- **TV:** at home the TV plays gym legends (Ronnie Coleman, Chris Bumstead, Zyzz) through YouTube's official embed player. Video IDs live in `src/tv.js`; the menu shows their YouTube thumbnails.
 - **Living city:** cars drive on the right, stop at red lights and for anyone in front of them; pedestrians walk on the sidewalks, wait for the green light and never walk through walls, cars, other people or the player.
 - **Music: Web Audio API.** A *procedural* soundtrack synthesised in real time (drums, bass, pads, arpeggios, melody), with a different track for the menu, city, home, supermarket, bank, win and game over, plus sound effects.
 - **Spotify in the gym:** the first gym radio station is a Spotify playlist played through Spotify's official embed player (streamed from Spotify, no audio copied into the game; full tracks need a Spotify login, otherwise previews). Change the playlist in `src/spotify.js`.
@@ -73,3 +74,7 @@ Source layout in `src/`:
 | `minigames.js` | Gym and bank minigames |
 | `audio.js` | Music sequencer, gym radio and sound effects |
 | `ui.js` | HUD, dialogs, notifications |
+
+## Credits
+
+- Character model: ["Male Body"](https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1) by [Alexander Antipov](https://sketchfab.com/Dessen), licensed under [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Modified (rigged, muscle growth, painted clothes).
