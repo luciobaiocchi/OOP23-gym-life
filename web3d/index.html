@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gym Life 3D</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app"></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="card stats">
+    <div class="row top"><span id="h-day">Giorno 1</span><span id="h-money">💲 0</span></div>
+    <div class="bar"><label>⚡ Energia</label><div><i id="b-stamina"></i></div><b id="v-stamina"></b></div>
+    <div class="bar"><label>😊 Umore</label><div><i id="b-happiness"></i></div><b id="v-happiness"></b></div>
+    <div class="sep"></div>
+    <div class="bar m"><label>🦵 Gambe</label><div><i id="b-legs"></i></div><b id="v-legs"></b></div>
+    <div class="bar m"><label>💪 Petto</label><div><i id="b-chest"></i></div><b id="v-chest"></b></div>
+    <div class="bar m"><label>🔙 Schiena</label><div><i id="b-back"></i></div><b id="v-back"></b></div>
+  </div>
+  <div id="inventory" class="card"></div>
+  <div class="topright">
+    <button id="btn-mute" title="Musica on/off (M)">🔊</button>
+    <button id="btn-quality" title="Qualità grafica (G)">✨</button>
+    <button id="btn-help" title="Comandi (H)">❔</button>
+  </div>
+</div>
+
+<div id="prompt" class="hidden"></div>
+<div id="toasts"></div>
+<div id="panel" class="hidden"></div>
+<div id="fade"></div>
+
+<!-- Controlli touch -->
+<div id="touch" class="hidden">
+  <div id="stick"><div id="knob"></div></div>
+  <button id="btn-action">E</button>
+</div>
+
+<noscript><p style="padding:2em">Attiva JavaScript per giocare.</p></noscript>
+<script src="game.js"></script>
+</body>
+</html>

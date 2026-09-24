@@ -39,3 +39,7 @@ Camillini Luca: creazione minigiochi interattivi relativi alla palestra e gestio
 Morri Mattia: creazione minigioco banca e inventario con annessa gestione di quest’ultimo
 
 Baiocchi Lucio: creazione personaggio principale con relativo movimento e bilanciamento delle statistiche
+
+GYM LIFE 3D:
+Nella cartella `web3d/` c'è una versione 3D del gioco con musica, giocabile nel browser su qualsiasi PC:
+basta aprire `web3d/index.html`. Dettagli in `web3d/README.md`.
