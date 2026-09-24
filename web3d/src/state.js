@@ -1,21 +1,21 @@
-// Modello di gioco: statistiche, inventario, giorni, imprevisti.
-// Valori ripresi dalla versione Java (StatsConstants, FoodType, EncountersConstants, GameDifficulty).
+// Game model: stats, inventory, days and random encounters.
+// Values come from the Java version (StatsConstants, FoodType, EncountersConstants, GameDifficulty).
 
 export const MAX_STAT = 100;
 
 export const DIFFICULTIES = {
-  easy: { label: 'Facile', days: 40 },
-  medium: { label: 'Normale', days: 30 },
-  hard: { label: 'Difficile', days: 20 },
+  easy: { label: 'Easy', days: 40 },
+  medium: { label: 'Normal', days: 30 },
+  hard: { label: 'Hard', days: 20 },
 };
 
 export const FOODS = {
-  hamburger: { name: 'Hamburger', icon: '🍔', cost: 15, stamina: 5, happiness: 10, mass: -5 },
-  broccoli: { name: 'Broccoli', icon: '🥦', cost: 5, stamina: 10, happiness: -10, mass: 5 },
-  meat: { name: 'Bistecca', icon: '🥩', cost: 10, stamina: 5, happiness: 5, mass: -5 },
+  hamburger: { name: 'Burger', cost: 15, stamina: 5, happiness: 10, mass: -5 },
+  broccoli: { name: 'Broccoli', cost: 5, stamina: 10, happiness: -10, mass: 5 },
+  meat: { name: 'Steak', cost: 10, stamina: 5, happiness: 5, mass: -5 },
 };
 
-// Costi degli allenamenti
+// Workout costs
 export const WORKOUT_STAMINA = 35;
 export const WORKOUT_HAPPINESS = 4;
 
@@ -23,32 +23,32 @@ const VL = 2, L = 5, M = 10, H = 20, VH = 30;
 
 export const ENCOUNTERS = [
   {
-    id: 'moneybag', title: 'Borsa di soldi', icon: '💰', weight: 0.2,
-    text: 'Trovi una borsa piena di soldi per terra. La prendi?',
+    id: 'moneybag', title: 'A bag of money', weight: 0.2,
+    text: 'You find a bag full of money lying on the ground. Do you take it?',
     accept: { money: VH, happiness: L, stamina: -L },
     deny: { happiness: -L },
   },
   {
-    id: 'robber', title: 'Rapinatore', icon: '🦹', weight: 0.2,
-    text: 'Un rapinatore prova a rubarti il portafoglio. Reagisci?',
+    id: 'robber', title: 'Robber', weight: 0.2,
+    text: 'A robber tries to steal your wallet. Do you fight back?',
     accept: { mass: L, stamina: -H },
     deny: { money: -H, happiness: -M },
   },
   {
-    id: 'pusher', title: 'Spacciatore', icon: '💉', weight: 0.2,
-    text: 'Un tizio losco ti offre degli steroidi. Accetti?',
+    id: 'pusher', title: 'Shady dealer', weight: 0.2,
+    text: 'A shady guy offers you some steroids. Do you accept?',
     accept: { mass: M, happiness: -M, money: -H },
     deny: { happiness: L },
   },
   {
-    id: 'gymbro', title: 'Gym bro', icon: '🤜', weight: 0.2,
-    text: 'Passa il tuo gym bro. Gli devi dei soldi... ti fermi a salutarlo?',
+    id: 'gymbro', title: 'Your gym bro', weight: 0.2,
+    text: 'Your gym bro is walking by. You owe him some money... do you stop to say hi?',
     accept: { happiness: L, stamina: M, money: -L },
     deny: { happiness: -M },
   },
   {
-    id: 'icecream', title: 'Camioncino dei gelati', icon: '🍦', weight: 0.2,
-    text: 'C\'è un camioncino dei gelati qui fuori. Ne compri uno?',
+    id: 'icecream', title: 'Ice cream truck', weight: 0.2,
+    text: 'There is an ice cream truck parked nearby. Do you buy one?',
     accept: { mass: -VL, happiness: H },
     deny: { happiness: -L, stamina: M },
   },
@@ -83,12 +83,12 @@ export class GameState {
     this.listeners.forEach((fn) => fn(this));
   }
 
-  // Applica una mappa di variazioni {money, stamina, happiness, mass, legs, chest, back}
+  // Applies a map of changes {money, stamina, happiness, mass, legs, chest, back}
   apply(delta) {
     for (const [k, v] of Object.entries(delta)) {
       if (k === 'money') this.money = Math.max(0, this.money + v);
       else if (k === 'mass') {
-        // la massa generica si divide sui tre gruppi muscolari
+        // generic mass is split across the three muscle groups
         const part = v / 3;
         this.legs = clamp(this.legs + part, 0, MAX_STAT);
         this.chest = clamp(this.chest + part, 0, MAX_STAT);
@@ -126,13 +126,6 @@ export class GameState {
     return this.stamina >= WORKOUT_STAMINA;
   }
 
-  // score in [0,1]: gain proporzionale al completamento del minigioco
-  workout(group, score) {
-    const gain = Math.round(4 + score * 14);
-    this.apply({ [group]: gain, stamina: -WORKOUT_STAMINA, happiness: score > 0.5 ? WORKOUT_HAPPINESS : -WORKOUT_HAPPINESS });
-    return gain;
-  }
-
   randomEncounter() {
     const r = Math.random();
     let acc = 0;
@@ -148,9 +141,9 @@ export class GameState {
   }
 
   gameOverReason() {
-    if (this.days <= 0) return 'Hai finito i giorni a disposizione!';
-    if (this.stamina <= 0) return 'Sei crollato dalla stanchezza!';
-    if (this.happiness <= 0) return 'Sei troppo depresso per continuare...';
+    if (this.days <= 0) return 'You ran out of days.';
+    if (this.stamina <= 0) return 'You collapsed from exhaustion.';
+    if (this.happiness <= 0) return 'You are too down to keep going.';
     return null;
   }
 }

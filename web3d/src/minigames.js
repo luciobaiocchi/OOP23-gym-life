@@ -1,6 +1,6 @@
-// Minigiochi: squat (riflessi sui colori), panca (tempismo), lat machine (alternanza tasti),
-// lavoro in banca (frecce) e gioco dell'aereo (moltiplicatore, come nella versione Java).
-// Ogni minigioco espone update(dt), key(k) e chiama ctx.done(risultato) alla fine.
+// Minigames: squat (colour reflexes), bench press (timing), lat pulldown (alternating keys),
+// bank job (arrows) and the plane game (multiplier, as in the Java version).
+// Each minigame exposes update(dt), key(k) and calls ctx.done(result) at the end.
 
 const COUNTDOWN = 2.4;
 
@@ -15,17 +15,17 @@ function countdownText(t) {
 // ---------------------------------------------------------------- SQUAT
 export function squatGame(ctx, level) {
   const COLORS = [
-    { n: 'ROSSO', c: '#ff4d4d', k: '1' },
-    { n: 'VERDE', c: '#3ecf6e', k: '2' },
-    { n: 'BLU', c: '#3d8bff', k: '3' },
-    { n: 'GIALLO', c: '#f0d000', k: '4' },
+    { n: 'RED', c: '#ff4d4d', k: '1' },
+    { n: 'GREEN', c: '#3ecf6e', k: '2' },
+    { n: 'BLUE', c: '#3d8bff', k: '3' },
+    { n: 'YELLOW', c: '#f0d000', k: '4' },
   ];
   const limit = [2.2, 1.6, 1.15][level];
   const total = 10;
   const box = ctx.ui.open(
-    header('🦵 Squat', 'Premi il colore <b>scritto</b> (non quello in cui è colorata la parola!) prima che scada il tempo.') +
-    `<div class="info"><span id="mg-rep">Rep 0/${total}</span><span id="mg-good">✔ 0</span></div>
-     <div class="word" id="mg-word">Pronto?</div>
+    header('Squat', 'Press the colour the word <b>says</b> (not the colour it is painted in) before time runs out.') +
+    `<div class="info"><span id="mg-rep">Rep 0/${total}</span><span id="mg-good">Good 0</span></div>
+     <div class="word" id="mg-word">Ready?</div>
      <div class="meter"><div class="fill" id="mg-time"></div></div>
      <div class="btns">${COLORS.map((c) => `<button class="btn" data-k="${c.k}" style="background:${c.c};color:#111">${c.n}<small>[${c.k}]</small></button>`).join('')}</div>`,
     { clear: true, cls: 'mg' });
@@ -52,14 +52,14 @@ export function squatGame(ctx, level) {
       good++;
       anim = 0;
       ctx.audio.sfx('good');
-      word.textContent = '💪 BUONA!';
+      word.textContent = 'GOOD REP';
       word.style.color = '#3ecf6e';
     } else {
       ctx.audio.sfx('bad');
-      word.textContent = '❌';
+      word.textContent = 'MISSED';
       box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
     }
-    box.querySelector('#mg-good').textContent = `✔ ${good}`;
+    box.querySelector('#mg-good').textContent = `Good ${good}`;
   }
 
   const api = {
@@ -92,17 +92,17 @@ export function squatGame(ctx, level) {
   return api;
 }
 
-// ---------------------------------------------------------------- PANCA
+// ---------------------------------------------------------------- BENCH PRESS
 export function benchGame(ctx, level) {
   const width = [0.24, 0.17, 0.11][level];
   const speed = [2.3, 3.0, 3.8][level];
   const total = 8, maxMiss = 3;
   const box = ctx.ui.open(
-    header('💪 Panca piana', 'Premi <b>SPAZIO</b> (o il pulsante) quando l\'indicatore è nella zona verde.') +
-    `<div class="info"><span id="mg-rep">Rep 0/${total}</span><span id="mg-miss">Errori 0/${maxMiss}</span></div>
-     <div class="word" id="mg-word">Pronto?</div>
+    header('Bench press', 'Press <b>SPACE</b> (or the button) when the marker is inside the green zone.') +
+    `<div class="info"><span id="mg-rep">Rep 0/${total}</span><span id="mg-miss">Misses 0/${maxMiss}</span></div>
+     <div class="word" id="mg-word">Ready?</div>
      <div class="meter"><div class="zone" id="mg-zone"></div><div class="needle" id="mg-needle"></div></div>
-     <div class="btns"><button class="btn primary" id="mg-push">SPINGI! <small>[Spazio]</small></button></div>`,
+     <div class="btns"><button class="btn primary" id="mg-push">PUSH <small>[Space]</small></button></div>`,
     { clear: true, cls: 'mg' });
   box.querySelector('#mg-push').onclick = () => api.key(' ');
   const word = box.querySelector('#mg-word');
@@ -133,7 +133,7 @@ export function benchGame(ctx, level) {
       if (t > 0) {
         t -= dt;
         word.textContent = countdownText(t);
-        if (t <= 0) word.textContent = 'VIA!';
+        if (t <= 0) word.textContent = 'GO';
         return;
       }
       lock -= dt;
@@ -149,33 +149,33 @@ export function benchGame(ctx, level) {
         rep++;
         anim = 0;
         ctx.audio.sfx('good');
-        word.textContent = '💪 SU!';
+        word.textContent = 'UP';
         newZone();
       } else {
         miss++;
         rep++;
         ctx.audio.sfx('bad');
-        word.textContent = '😣 Mancato';
+        word.textContent = 'MISSED';
         box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
       }
       box.querySelector('#mg-rep').textContent = `Rep ${good}/${total}`;
-      box.querySelector('#mg-miss').textContent = `Errori ${miss}/${maxMiss}`;
+      box.querySelector('#mg-miss').textContent = `Misses ${miss}/${maxMiss}`;
       if (good >= total || miss >= maxMiss) finish();
     },
   };
   return api;
 }
 
-// ---------------------------------------------------------------- LAT MACHINE
+// ---------------------------------------------------------------- LAT PULLDOWN
 export function latGame(ctx, level) {
   const inc = [0.15, 0.115, 0.09][level];
   const duration = 15, target = 8;
   const box = ctx.ui.open(
-    header('🔙 Lat machine', 'Alterna velocemente <b>←</b> e <b>→</b> (oppure A e D) per tirare giù la sbarra!') +
+    header('Lat pulldown', 'Alternate <b>Left</b> and <b>Right</b> (or A and D) as fast as you can to pull the bar down.') +
     `<div class="info"><span id="mg-rep">Rep 0/${target}</span><span id="mg-timer">${duration}s</span></div>
-     <div class="word" id="mg-word">Pronto?</div>
+     <div class="word" id="mg-word">Ready?</div>
      <div class="meter"><div class="fill" id="mg-fill"></div></div>
-     <div class="btns"><button class="btn blue" data-k="ArrowLeft">◀ SX</button><button class="btn blue" data-k="ArrowRight">DX ▶</button></div>`,
+     <div class="btns"><button class="btn blue" data-k="ArrowLeft">&larr; Left</button><button class="btn blue" data-k="ArrowRight">Right &rarr;</button></div>`,
     { clear: true, cls: 'mg' });
   box.querySelectorAll('[data-k]').forEach((b) => { b.onclick = () => api.key(b.dataset.k); });
   const word = box.querySelector('#mg-word');
@@ -188,7 +188,7 @@ export function latGame(ctx, level) {
       if (t > 0) {
         t -= dt;
         word.textContent = countdownText(t);
-        if (t <= 0) word.textContent = 'TIRA!';
+        if (t <= 0) word.textContent = 'PULL';
         return;
       }
       left -= dt;
@@ -197,7 +197,7 @@ export function latGame(ctx, level) {
       box.querySelector('#mg-fill').style.width = prog * 100 + '%';
       if (left <= 0 || reps >= target) {
         over = true;
-        word.textContent = reps >= target ? '🔥 Completato!' : '⏱ Tempo!';
+        word.textContent = reps >= target ? 'SET COMPLETE' : 'TIME';
         setTimeout(() => ctx.done(Math.min(1, reps / target)), 700);
       }
     },
@@ -211,7 +211,7 @@ export function latGame(ctx, level) {
         prog = 0;
         reps++;
         ctx.audio.sfx('good');
-        word.textContent = `💪 ${reps}`;
+        word.textContent = `REP ${reps}`;
         box.querySelector('#mg-rep').textContent = `Rep ${reps}/${target}`;
       }
     },
@@ -219,16 +219,16 @@ export function latGame(ctx, level) {
   return api;
 }
 
-// ---------------------------------------------------------------- LAVORO
+// ---------------------------------------------------------------- BANK JOB
 export function workGame(ctx) {
-  const ARROWS = { ArrowUp: '⬆️', ArrowDown: '⬇️', ArrowLeft: '⬅️', ArrowRight: '➡️' };
+  const ARROWS = { ArrowUp: '\u2191', ArrowDown: '\u2193', ArrowLeft: '\u2190', ArrowRight: '\u2192' };
   const WASD = { w: 'ArrowUp', s: 'ArrowDown', a: 'ArrowLeft', d: 'ArrowRight' };
   const keys = Object.keys(ARROWS);
   const duration = 15;
   const box = ctx.ui.open(
-    header('💵 Conta banconote', 'Premi la freccia mostrata (o WASD). Ogni risposta giusta vale <b>$2</b>.') +
+    header('Count the banknotes', 'Press the arrow shown (or WASD). Every correct answer pays <b>$2</b>.') +
     `<div class="info"><span id="mg-earn">$0</span><span id="mg-timer">${duration}s</span></div>
-     <div class="arrows" id="mg-arrow">⏳</div>
+     <div class="arrows" id="mg-arrow">...</div>
      <div class="btns">${keys.map((k) => `<button class="btn" data-k="${k}">${ARROWS[k]}</button>`).join('')}</div>`,
     { clear: true, cls: 'mg' });
   box.querySelectorAll('[data-k]').forEach((b) => { b.onclick = () => api.key(b.dataset.k); });
@@ -250,7 +250,7 @@ export function workGame(ctx) {
       box.querySelector('#mg-timer').textContent = Math.ceil(left) + 's';
       if (left <= 0) {
         over = true;
-        arrow.textContent = '⏱';
+        arrow.textContent = 'TIME';
         setTimeout(() => ctx.done(correct * 2), 500);
       }
     },
@@ -273,16 +273,16 @@ export function workGame(ctx) {
   return api;
 }
 
-// ---------------------------------------------------------------- AEREO
+// ---------------------------------------------------------------- PLANE
 export function planeGame(ctx, bet) {
-  // punto di crash con vantaggio del banco (~4%)
+  // crash point with a small house edge (~4%)
   const u = Math.random();
   const crashAt = Math.min(25, Math.max(1, 0.96 / (1 - u)));
   const box = ctx.ui.open(
-    header('✈️ Investimento', `Hai puntato <b>$${bet}</b>. Incassa prima che l'aereo precipiti!`) +
+    header('Investment', `You bet <b>$${bet}</b>. Cash out before the plane goes down.`) +
     `<canvas id="mg-cv" width="520" height="220"></canvas>
      <div class="word" id="mg-mult">1.00x</div>
-     <div class="btns"><button class="btn good" id="mg-cash">INCASSA <small>[Spazio]</small></button></div>`,
+     <div class="btns"><button class="btn good" id="mg-cash">CASH OUT <small>[Space]</small></button></div>`,
     { cls: 'mg' });
   box.querySelector('#mg-cash').onclick = () => api.key(' ');
   const cv = box.querySelector('#mg-cv');
@@ -306,10 +306,28 @@ export function planeGame(ctx, bet) {
     pts.forEach(([tt, m], i) => (i ? g.lineTo(X(tt), Y(m)) : g.moveTo(X(tt), Y(m))));
     g.stroke();
     const last = pts[pts.length - 1] || [0, 1];
-    g.font = '34px sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(crashed ? '💥' : '✈️', X(last[0]), Y(last[1]) - 6);
+    // small plane silhouette (or a red burst when it crashes)
+    g.save();
+    g.translate(X(last[0]), Y(last[1]));
+    if (crashed) {
+      g.fillStyle = '#ff5a5a';
+      g.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2, rr = i % 2 ? 7 : 16;
+        g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      g.fill();
+    } else {
+      g.rotate(-0.35);
+      g.fillStyle = '#f4f6fb';
+      g.beginPath();
+      g.ellipse(0, 0, 18, 4, 0, 0, Math.PI * 2);
+      g.moveTo(-2, 0); g.lineTo(-10, -13); g.lineTo(-5, -13); g.lineTo(6, 0);
+      g.moveTo(-2, 0); g.lineTo(-10, 13); g.lineTo(-5, 13); g.lineTo(6, 0);
+      g.moveTo(-14, 0); g.lineTo(-19, -8); g.lineTo(-16, -8); g.lineTo(-10, 0);
+      g.fill();
+    }
+    g.restore();
   }
 
   function end(won) {
@@ -317,11 +335,11 @@ export function planeGame(ctx, bet) {
     if (won) {
       const win = Math.round(bet * mult);
       ctx.audio.sfx('buy');
-      multEl.innerHTML = `✅ Incassati <b>$${win}</b> (${mult.toFixed(2)}x)`;
+      multEl.innerHTML = `Cashed out <b>$${win}</b> (${mult.toFixed(2)}x)`;
       setTimeout(() => ctx.done(win), 1300);
     } else {
       ctx.audio.sfx('crash');
-      multEl.innerHTML = `💥 Precipitato a ${crashAt.toFixed(2)}x!`;
+      multEl.innerHTML = `Crashed at ${crashAt.toFixed(2)}x`;
       draw(true);
       setTimeout(() => ctx.done(0), 1500);
     }

@@ -1,68 +1,74 @@
-# Gym Life 3D 🏋️🎵
+# Gym Life 3D
 
-Versione 3D di **Gym Life**, giocabile nel browser su qualsiasi PC (Windows, macOS, Linux, Chromebook) e anche da smartphone/tablet.
+A 3D version of **Gym Life** that runs in the browser on any computer (Windows, macOS, Linux, Chromebook) and on phones and tablets.
 
-## Come giocare
+## How to play
 
-### 🎮 [Gioca online → luciobaiocchi.github.io/OOP23-gym-life](https://luciobaiocchi.github.io/OOP23-gym-life/)
+### [Play online: luciobaiocchi.github.io/OOP23-gym-life](https://luciobaiocchi.github.io/OOP23-gym-life/)
 
-Oppure, **senza installare nulla**, apri `index.html` con un browser moderno (Chrome, Edge, Firefox, Safari): funziona anche offline, con doppio clic sul file.
+Or, **with nothing to install**, open `index.html` in a modern browser (Chrome, Edge, Firefox, Safari). It also works offline by double-clicking the file.
 
-### Obiettivo
-Porta **gambe, petto e schiena a 100** prima che finiscano i giorni.
-Game over se **energia** o **umore** arrivano a 0.
+### Goal
+Get **legs, chest and back to 100** before you run out of days.
+It's game over if **energy** or **mood** drop to 0.
 
-| Luogo | Cosa fare |
+| Place | What you can do |
 |---|---|
-| 🏠 Casa | Dormi (nuovo giorno, energia piena, salvataggio automatico), mangia dal frigo, guarda la TV, mettiti in posa allo specchio |
-| 🏋️ Palestra | Squat (gambe), panca piana (petto), lat machine (schiena): ogni esercizio è un minigioco, il guadagno dipende da quanto giochi bene e dal carico scelto |
-| 🛒 Supermercato | Compra hamburger, broccoli e bistecche (stessi valori della versione Java) |
-| 🏦 Banca | Lavora contando banconote oppure investi nel gioco dell'aereo |
-| 🌆 Città | Uscendo dagli edifici possono capitare imprevisti (rapinatore, gym bro, gelati...) |
+| Home | Sleep (next day, full energy, autosave), eat from the fridge, watch TV, pose in the mirror |
+| Gym | Gym radio (R switches station), talk to your gym bro, and train: squat (legs), bench press (chest), lat pulldown (back). Every exercise is a minigame; gains depend on how well you play and on the load you pick |
+| Supermarket | Buy burgers, broccoli and steak (same values as the Java version) |
+| Bank | Work by counting banknotes, or invest in the plane game |
+| City | Random encounters when you leave a building (robber, gym bro, ice cream truck...) |
 
-### Comandi
-| Tasto | Azione |
+### Controls
+| Key | Action |
 |---|---|
-| WASD / frecce | Muoviti (Shift per correre) |
-| E / Spazio / Invio | Interagisci |
-| Trascina il mouse · rotella | Ruota visuale · zoom |
-| 1 2 3 | Mangia dall'inventario |
-| M | Musica on/off |
-| G | Qualità grafica alta / prestazioni |
-| H | Aiuto |
+| WASD / arrows | Move (hold Shift to run) |
+| E / Space / Enter | Interact |
+| Mouse drag, wheel | Rotate camera, zoom |
+| 1 2 3 | Eat from your inventory |
+| M | Music on/off |
+| R | Switch the gym radio station |
+| G | Graphics quality: low / medium / high |
+| H | Help |
 
-Su dispositivi touch compaiono un joystick virtuale e il tasto **E**.
+On touch devices a virtual joystick and an **E** button appear.
 
-## Tecnologia
+## Technology
 
-- **Motore grafico: [Three.js](https://threejs.org/) (WebGL).** Scelto perché gira in qualsiasi browser senza plugin né installazioni, anche su PC datati e grafiche integrate. Tutti i modelli sono low-poly generati via codice: niente asset da scaricare.
-- **Musica: Web Audio API.** Colonna sonora *procedurale* sintetizzata in tempo reale (batteria, basso, pad, arpeggi, melodia), con un brano diverso per menu, città, casa, palestra, allenamento, supermercato, banca, vittoria e game over, e dissolvenze tra un brano e l'altro. Più effetti sonori.
-- **Prestazioni:** se il gioco rileva meno di ~28 FPS passa da solo alla modalità "prestazioni" (niente ombre, risoluzione ridotta). Si può cambiare con **G**.
+- **Engine: [Three.js](https://threejs.org/) (WebGL).** Runs in any browser without plugins or installs, including older PCs with integrated graphics.
+- **Graphics:** physically based materials, ACES tone mapping, a physical sky that also lights the scene, soft shadows and, on high quality, ambient occlusion. All textures (asphalt, brick, plaster, wood, marble, grass...) are generated procedurally at startup, so there are no image files to download.
+- **Characters:** sculpted from code. The body is a signed distance field built from anatomical muscles (pecs, six-pack, obliques, serratus, lats, traps, spinal erectors, three deltoid heads, biceps, triceps, forearms, quads with the teardrop, hamstrings, calves) blended with tight creases so each muscle stays readable, polygonised with surface nets, shaded with baked cavity occlusion and bound to a skeleton. Head, hands with fingers and sneakers are finer rigid meshes. The player trains shirtless so the physique shows, and the body is rebuilt as the muscles grow.
+- **Living city:** cars drive on the right, stop at red lights and for anyone in front of them; pedestrians walk on the sidewalks, wait for the green light and never walk through walls, cars, other people or the player.
+- **Music: Web Audio API.** A *procedural* soundtrack synthesised in real time (drums, bass, pads, arpeggios, melody), with a different track for the menu, city, home, supermarket, bank, win and game over, plus sound effects.
+- **Gym radio:** *Drift Phonk* (808 cowbells and distorted bass), *Hardstyle Pump* (distorted kick and supersaws at 150 BPM), *Gym Rap* (trap with 808s and triplet hi-hats) and *Euro Gym*. An air horn at the start of each workout and gym bro one-liners ("Light weight baby!", "Yeah buddy!") through the browser's speech synthesis.
+- **Performance:** three quality levels. If the game runs below ~28 FPS it steps down on its own (no ambient occlusion, then no shadows and a lower resolution). Press **G** to choose manually.
 
-## Pubblicazione (GitHub Pages)
+## Publishing (GitHub Pages)
 
-Il workflow [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) ricompila il gioco e lo pubblica come sito statico
-a ogni push su `main` che tocca `web3d/` (si può anche lanciare a mano da *Actions → Run workflow*).
+The [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) workflow rebuilds the game and publishes it as a static site
+on every push to `main` that touches `web3d/` (it can also be started by hand from *Actions → Run workflow*).
 
-Configurazione da fare una sola volta: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
-## Sviluppo
+## Development
 
 ```bash
 cd web3d
 npm install
-npm run dev     # server locale su http://localhost:8080 con ricompilazione automatica
-npm run build   # rigenera game.js (bundle unico, già incluso nel repository)
+npm run dev     # local server on http://localhost:8080 with automatic rebuilds
+npm run build   # regenerates game.js (single bundle, already committed)
 ```
 
-Struttura del codice in `src/`:
+Source layout in `src/`:
 
-| File | Contenuto |
+| File | Contents |
 |---|---|
-| `main.js` | Renderer, loop di gioco, input, telecamera, logica delle interazioni |
-| `state.js` | Modello: statistiche, cibo, imprevisti, difficoltà |
-| `world.js` | Costruzione di città e interni |
-| `character.js` | Personaggio con pose/animazioni e muscoli che crescono |
-| `minigames.js` | Minigiochi di palestra e banca |
-| `audio.js` | Sequencer musicale ed effetti sonori |
-| `ui.js` | HUD, finestre di dialogo, notifiche |
+| `main.js` | Renderer, sky and lighting, game loop, input, camera, interaction logic |
+| `state.js` | Model: stats, food, encounters, difficulty |
+| `world.js` | City (buildings, traffic, pedestrians) and interiors, collisions |
+| `textures.js` | Procedural textures |
+| `character.js` | Character with poses/animations and growing muscles |
+| `minigames.js` | Gym and bank minigames |
+| `audio.js` | Music sequencer, gym radio and sound effects |
+| `ui.js` | HUD, dialogs, notifications |
