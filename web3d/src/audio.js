@@ -106,6 +106,7 @@ Object.assign(TRACKS, {
 });
 
 export const GYM_STATIONS = [
+  { id: 'spotify', name: 'Your Spotify playlist', external: true },
   { id: 'phonk', name: 'Drift Phonk' },
   { id: 'hardstyle', name: 'Hardstyle Pump' },
   { id: 'gymrap', name: 'Gym Rap' },
@@ -196,7 +197,7 @@ export class Audio {
     if (!force && this.current && this.current.name === name) return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
-    if (this.current) {
+    if (this.current && this.current.bus) {
       const old = this.current;
       clearInterval(old.timer);
       old.bus.gain.cancelScheduledValues(now);
@@ -205,6 +206,8 @@ export class Audio {
       setTimeout(() => old.bus.disconnect(), 1500);
     }
     const track = TRACKS[name];
+    // no built-in track (e.g. an external player is on): stay silent
+    if (!track) { this.current = { name }; return; }
     const bus = ctx.createGain();
     bus.gain.setValueAtTime(0, now);
     bus.gain.linearRampToValueAtTime(1, now + 0.8);
