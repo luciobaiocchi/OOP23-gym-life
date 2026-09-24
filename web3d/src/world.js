@@ -712,7 +712,7 @@ export function buildCity() {
   pedRoutes.forEach((route, i) => {
     const npc = new Character({
       shirt: shirts[i], skin: skins[i], hair: [0x2a1a10, 0x111111, 0x6b4a2b, 0x3a2615, 0x9a7b4f][i],
-      shorts: [0x1f2733, 0x3b3b3b, 0x2c3e2d, 0x1a1a1a, 0x4a3b2a][i], muscles: [r() * 30, r() * 30, r() * 30],
+      shorts: [0x1f2733, 0x3b3b3b, 0x2c3e2d, 0x1a1a1a, 0x4a3b2a][i], muscles: [[10, 20, 30][i % 3], [10, 20, 30][(i + 1) % 3], [10, 20, 30][(i + 2) % 3]],
     });
     npc.root.scale.setScalar(0.94 + r() * 0.1);
     s.add(npc.root);
@@ -1086,7 +1086,7 @@ export function buildGym() {
   cyl(0.15, 0.15, 0.4, mat(0x6fb3e0, { transparent: true, opacity: 0.7, roughness: 0.05 }), -8.3, 1.3, 0, s, 16);
   p.circles.push({ x: -8.3, z: 0, r: 0.35 });
   // the gym bro
-  const bro = new Character({ shirt: 0x111111, skin: 0x8d5524, hair: 0x0c0c0c, muscles: [90, 95, 90] });
+  const bro = new Character({ shirtless: true, shorts: 0x7a1f1f, skin: 0x8d5524, hair: 0x0c0c0c, muscles: [90, 95, 90] });
   bro.root.position.set(-6, 0, 3.5);
   bro.root.rotation.y = Math.PI / 2;
   s.add(bro.root);

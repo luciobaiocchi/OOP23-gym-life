@@ -130,7 +130,7 @@ let station = Math.max(0, GYM_STATIONS.findIndex((st) => st.id === store.get(RAD
 // The gym plays the selected radio station, other places their own music
 const musicFor = (p) => (p.name === 'gym' ? GYM_STATIONS[station].id : p.music);
 
-const player = new Character();
+const player = new Character({ shirtless: true, shorts: 0x1b1d22 });
 const pos = new THREE.Vector3();
 let heading = 0;
 let speed = 0;
