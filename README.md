@@ -41,8 +41,8 @@ Morri Mattia: creazione minigioco banca e inventario con annessa gestione di que
 Baiocchi Lucio: creazione personaggio principale con relativo movimento e bilanciamento delle statistiche
 
 GYM LIFE 3D:
-🎮 Gioca online: https://luciobaiocchi.github.io/OOP23-gym-life/
+Play online: https://luciobaiocchi.github.io/OOP23-gym-life/
 
-Nella cartella `web3d/` c'è una versione 3D del gioco con musica, giocabile nel browser su qualsiasi PC:
-si può giocare dal link qui sopra oppure aprendo `web3d/index.html`. Dettagli in `web3d/README.md`.
-Il sito viene pubblicato automaticamente su GitHub Pages a ogni push su `main` che modifica `web3d/`.
+The `web3d/` folder contains a 3D version of the game with music, playable in the browser on any computer:
+use the link above or open `web3d/index.html`. Details in `web3d/README.md`.
+The site is published automatically to GitHub Pages on every push to `main` that changes `web3d/`.

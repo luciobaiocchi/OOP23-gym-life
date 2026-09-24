@@ -2,7 +2,7 @@
   "name": "gym-life-3d",
   "version": "1.0.0",
   "private": true,
-  "description": "Gym Life 3D - versione browser del gioco, con Three.js e musica procedurale",
+  "description": "Gym Life 3D - browser version of the game, built with Three.js and procedural music",
   "scripts": {
     "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2019 --outfile=game.js",
     "dev": "esbuild src/main.js --bundle --format=iife --target=es2019 --outfile=game.js --watch --servedir=. --serve=8080"

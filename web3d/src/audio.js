@@ -1,15 +1,15 @@
-// Musica e effetti sonori generati in tempo reale con la Web Audio API:
-// nessun file audio da scaricare, funziona offline su qualsiasi browser.
+// Music and sound effects synthesised in real time with the Web Audio API:
+// no audio files to download, works offline in any browser.
 
 const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
-// Accordi come liste di note MIDI
+// Chords as lists of MIDI notes
 const Am = [57, 60, 64], F = [53, 57, 60], C = [48, 52, 55], G = [55, 59, 62];
 const Dm = [50, 53, 57], Em = [52, 55, 59], E = [52, 56, 59];
 const Cm = [48, 51, 55], Ab = [56, 60, 63], Eb = [51, 55, 58], Bb = [46, 50, 53];
 const Fmaj7 = [53, 57, 60, 64], Cmaj7 = [48, 52, 55, 59], Am7 = [57, 60, 64, 67], Dm7 = [50, 53, 57, 60];
 
-// x = colpo, . = pausa (16 step per battuta)
+// x = hit, . = rest (16 steps per bar)
 const P = (s) => s.split('').map((c) => c === 'x');
 
 const TRACKS = {
@@ -70,8 +70,8 @@ const TRACKS = {
   },
 };
 
-// ---- Radio della palestra: musica da gym bro ----
-// Ogni brano ha uno scheduler dedicato (vedi Audio.gymStep)
+// ---- Gym radio: gym bro music ----
+// Each track has its own scheduler (see Audio.gymStep)
 const nF = 77, nAb = 80, nBb = 82, nC = 84, nDb = 85, nEb = 75;
 const PHONK_RIFF = [
   [nF, null, nF, nAb, nF, null, nC, null, nF, nF, nAb, nBb, nDb, nC, nAb, null],
@@ -106,10 +106,10 @@ Object.assign(TRACKS, {
 });
 
 export const GYM_STATIONS = [
-  { id: 'phonk', name: 'DRIFT PHONK 🚗' },
-  { id: 'hardstyle', name: 'HARDSTYLE PUMP ⚡' },
-  { id: 'gymrap', name: 'GYM RAP 🔥' },
-  { id: 'gym', name: 'EURO GYM 💪' },
+  { id: 'phonk', name: 'Drift Phonk' },
+  { id: 'hardstyle', name: 'Hardstyle Pump' },
+  { id: 'gymrap', name: 'Gym Rap' },
+  { id: 'gym', name: 'Euro Gym' },
 ];
 
 const BRO_LINES = {
@@ -119,7 +119,7 @@ const BRO_LINES = {
   bro: ['Yo bro!', 'Do you even lift, bro?', 'We\'re gonna make it, bro!', 'Never skip leg day!'],
 };
 
-// Generatore pseudo-casuale deterministico per melodie ripetibili
+// Deterministic pseudo-random generator for repeatable melodies
 function rng(seed) {
   let s = seed >>> 0;
   return () => {
@@ -137,7 +137,7 @@ export class Audio {
     this.wanted = null;
   }
 
-  // Deve essere chiamato dopo un gesto dell'utente (policy autoplay dei browser)
+  // Must be called after a user gesture (browser autoplay policy)
   init() {
     if (this.ctx) {
       if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -161,7 +161,7 @@ export class Audio {
     this.sfxGain.gain.value = 0.9;
     this.sfxGain.connect(this.master);
 
-    // Delay condiviso per lead/arpeggi
+    // Shared delay for leads/arpeggios
     this.delay = ctx.createDelay(1);
     this.delay.delayTime.value = 0.28;
     const fb = ctx.createGain();
@@ -171,7 +171,7 @@ export class Audio {
     this.delay.connect(fb).connect(this.delay);
     this.delay.connect(dl).connect(this.musicGain);
 
-    // Buffer di rumore bianco per batteria
+    // White noise buffer for drums
     const len = ctx.sampleRate;
     this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = this.noise.getChannelData(0);
@@ -209,7 +209,7 @@ export class Audio {
     bus.gain.setValueAtTime(0, now);
     bus.gain.linearRampToValueAtTime(1, now + 0.8);
     bus.connect(this.musicGain);
-    // saturazione per 808 e kick "hard"
+    // saturation for the 808 and hard kicks
     const drive = ctx.createWaveShaper();
     drive.curve = this.distCurve(track.gym === 'hardstyle' ? 60 : 25);
     drive.oversample = '2x';
@@ -218,7 +218,7 @@ export class Audio {
     drive.connect(driveOut).connect(bus);
     const melody = this.makeMelody(track, name.length * 97 + track.bpm);
     const cur = { name, bus, drive, track, melody, step: 0, next: now + 0.1 };
-    const spb = 60 / track.bpm / 4; // secondi per sedicesimo
+    const spb = 60 / track.bpm / 4; // seconds per sixteenth
     cur.timer = setInterval(() => {
       while (cur.next < ctx.currentTime + 0.2) {
         this.scheduleStep(cur, cur.step, cur.next);
@@ -230,7 +230,7 @@ export class Audio {
     this.current = cur;
   }
 
-  // Melodia di 4 battute costruita sulle note degli accordi, variata ogni giro
+  // 4-bar melody built from chord tones, varied every loop
   makeMelody(track, seed) {
     const r = rng(seed);
     const phrases = [];
@@ -357,7 +357,7 @@ export class Audio {
     return c;
   }
 
-  // Basso 808 con glide opzionale dalla nota precedente
+  // 808 bass with an optional glide from the previous note
   bass808(t, midi, dur, dest, from = null, vol = 0.9) {
     const ctx = this.ctx;
     const o = ctx.createOscillator();
@@ -375,7 +375,7 @@ export class Audio {
     o.stop(t + dur + 0.05);
   }
 
-  // Campanaccio 808 intonato: il suono tipico della phonk
+  // Tuned 808 cowbell: the signature phonk sound
   cowbell(t, midi, dest, vol = 0.07) {
     const ctx = this.ctx;
     const f = midiToFreq(midi);
@@ -399,7 +399,7 @@ export class Audio {
     g.connect(this.delay);
   }
 
-  // Cassa hardstyle: attacco secco e coda distorta intonata
+  // Hardstyle kick: sharp attack and a tuned distorted tail
   hardKick(t, midi, dest) {
     const ctx = this.ctx;
     const o = ctx.createOscillator();
@@ -446,7 +446,7 @@ export class Audio {
     this.tone(midi + 12, t, 0.03, 'triangle', vol * 0.3, dest, 6000, 0.002, 0.25);
   }
 
-  // Sequencer dei brani della radio della palestra
+  // Sequencer for the gym radio tracks
   gymStep(cur, s, bar, t, spb) {
     const { track, bus, drive } = cur;
     const root = track.chords[bar % track.chords.length][0];
@@ -456,14 +456,14 @@ export class Audio {
     if (style === 'phonk') {
       if (track.kick[s]) {
         this.kick(t, bus, 0.6);
-        // 808 fino al colpo di cassa successivo, con glide sull'ultimo della battuta
+        // 808 until the next kick, with a glide on the last one of the bar
         let len = 1;
         while (len < 16 && !track.kick[(s + len) % 16]) len++;
         this.bass808(t, root, spb * len * 0.95, drive, s === 10 && bar % 2 ? root + 12 : null);
       }
       if (track.snare[s]) { this.clap(t, bus); this.snare(t, bus); }
       hat(t, s % 2 ? 0.02 : 0.04);
-      if (bar % 2 && s >= 14) hat(t + spb / 2, 0.03); // rullata
+      if (bar % 2 && s >= 14) hat(t + spb / 2, 0.03); // roll
       const note = PHONK_RIFF[bar % 2][s];
       if (note && bar % 8 !== 7) this.cowbell(t, note, bus);
       if (s === 0 && bar % 4 === 0) this.noiseHit(t, bus, 0.08, 1.2, 'highpass', 5000); // crash
@@ -488,7 +488,7 @@ export class Audio {
         this.bass808(t, root, spb * len, drive, s === 13 ? root + 7 : null);
       }
       if (track.snare[s]) { this.snare(t, bus); this.clap(t, bus, 0.2); }
-      // hi-hat trap: ottavi con terzine e rullate
+      // trap hi-hats: eighths with triplets and rolls
       if (s % 2 === 0) hat(t);
       if (s === 6 || s === 7) { hat(t + spb / 3, 0.025); hat(t + (2 * spb) / 3, 0.025); }
       if (bar % 2 && s >= 12) { hat(t + spb / 2, 0.03); hat(t + spb / 4, 0.02); hat(t + (3 * spb) / 4, 0.02); }
@@ -497,7 +497,7 @@ export class Audio {
     }
   }
 
-  // Frasi da gym bro con la sintesi vocale del browser (se disponibile)
+  // Gym bro one-liners through the browser's speech synthesis (if available)
   shout(kind) {
     const lines = BRO_LINES[kind];
     if (!lines || this.muted || !('speechSynthesis' in window)) return;
@@ -514,7 +514,7 @@ export class Audio {
     } catch (e) { /* sintesi vocale non disponibile */ }
   }
 
-  // ---- effetti sonori ----
+  // ---- sound effects ----
   sfx(name) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime + 0.01;

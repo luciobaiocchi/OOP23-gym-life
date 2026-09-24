@@ -2,12 +2,12 @@
   --bg: rgba(18, 22, 30, 0.82);
   --fg: #f4f6fb;
   --muted: #a8b0c0;
-  --accent: #f0b400;
+  --accent: #f2b705;
   --good: #3ecf6e;
   --bad: #ff5a5a;
   --blue: #3d8bff;
   --radius: 14px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; color: var(--fg); }
@@ -33,11 +33,12 @@ button { font: inherit; cursor: pointer; }
 #inventory button { background: rgba(255,255,255,.08); color: var(--fg); border: 1px solid rgba(255,255,255,.15); border-radius: 10px; padding: 6px 10px; min-width: 70px; }
 #inventory button:hover:not(:disabled) { background: rgba(255,255,255,.18); }
 #inventory button:disabled { opacity: .4; cursor: default; }
-#inventory .ico { font-size: 22px; display: block; }
+#inventory .name { display: block; font-size: 12px; color: var(--muted); }
+#inventory b { font-size: 16px; }
 #inventory small { color: var(--muted); }
 
 .topright { position: absolute; right: 12px; top: 12px; display: flex; gap: 8px; pointer-events: auto; }
-.topright button { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--bg); color: var(--fg); font-size: 18px; }
+.topright button { min-width: 42px; height: 42px; border-radius: 21px; border: none; background: var(--bg); color: var(--fg); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 10px; }
 
 #prompt { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); background: var(--bg); padding: 10px 18px; border-radius: 30px; font-weight: 600; pointer-events: none; }
 #prompt kbd { background: var(--accent); color: #111; border-radius: 6px; padding: 1px 8px; margin-right: 8px; font-family: inherit; }
@@ -72,7 +73,7 @@ button { font: inherit; cursor: pointer; }
 .effects span { background: rgba(255,255,255,.08); border-radius: 8px; padding: 2px 8px; }
 .effects .up { color: var(--good); }
 .effects .down { color: var(--bad); }
-.title { font-family: Impact, "Arial Black", sans-serif; color: var(--accent); text-shadow: 0 4px 0 #7a5a00; font-size: 58px !important; }
+.title { font-weight: 800; letter-spacing: 2px !important; color: var(--accent); font-size: 52px !important; }
 .controls { text-align: left; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; color: #d7dce6; margin: 12px auto; max-width: 380px; }
 .controls kbd { background: rgba(255,255,255,.15); border-radius: 5px; padding: 0 6px; font-family: inherit; }
 .scores { font-size: 13px; color: var(--muted); margin-top: 10px; }

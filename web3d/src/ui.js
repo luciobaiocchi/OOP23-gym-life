@@ -3,8 +3,17 @@ import { FOODS } from './state.js';
 const $ = (id) => document.getElementById(id);
 
 const LABELS = {
-  money: '💲 Soldi', stamina: '⚡ Energia', happiness: '😊 Umore', mass: '🏋️ Massa',
-  legs: '🦵 Gambe', chest: '💪 Petto', back: '🔙 Schiena',
+  money: 'Money', stamina: 'Energy', happiness: 'Mood', mass: 'Mass',
+  legs: 'Legs', chest: 'Chest', back: 'Back',
+};
+
+// Simple line icons (SVG) for the HUD buttons
+const svg = (d) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+export const ICONS = {
+  sound: svg('<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6a8 8 0 0 1 0 12"/>'),
+  muted: svg('<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/>'),
+  quality: svg('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>'),
+  help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5v.01"/>'),
 };
 
 export function effectsHtml(delta) {
@@ -25,8 +34,8 @@ export class UI {
   }
 
   update(state) {
-    $('h-day').textContent = `Giorno ${state.totalDays - state.days + 1} / ${state.totalDays}`;
-    $('h-money').textContent = `💲 ${Math.round(state.money)}`;
+    $('h-day').textContent = `Day ${state.totalDays - state.days + 1} / ${state.totalDays}`;
+    $('h-money').textContent = `$${Math.round(state.money)}`;
     const set = (k, v) => {
       const pct = Math.max(0, Math.min(100, v));
       const bar = $('b-' + k);
@@ -41,8 +50,8 @@ export class UI {
     inv.innerHTML = '';
     Object.entries(FOODS).forEach(([id, f], i) => {
       const b = document.createElement('button');
-      b.innerHTML = `<span class="ico">${f.icon}</span>${state.inventory[id]} <small>[${i + 1}]</small>`;
-      b.title = `${f.name}: mangia`;
+      b.innerHTML = `<span class="name">${f.name}</span><b>${state.inventory[id]}</b> <small>[${i + 1}]</small>`;
+      b.title = `Eat: ${f.name}`;
       b.disabled = state.inventory[id] === 0;
       b.onclick = () => this.onEat && this.onEat(id);
       inv.appendChild(b);
@@ -64,7 +73,7 @@ export class UI {
     setTimeout(() => t.remove(), 2700);
   }
 
-  // Finestra modale; buttons = [{label, cls, cb, key}]
+  // Modal dialog; buttons = [{label, cls, cb, key}]
   dialog(html, buttons = [], opts = {}) {
     this.panel.className = opts.clear ? 'clear' : '';
     this.panel.innerHTML = `<div class="box ${opts.cls || ''}">${html}<div class="btns"></div></div>`;
@@ -86,7 +95,7 @@ export class UI {
     return this.panel.querySelector('.box');
   }
 
-  // Pannello libero (minigiochi): restituisce il contenitore
+  // Free-form panel (minigames): returns the container
   open(html, opts = {}) {
     this.panel.className = opts.clear ? 'clear' : '';
     this.panel.innerHTML = `<div class="box ${opts.cls || ''}">${html}</div>`;
