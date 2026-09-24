@@ -4,8 +4,8 @@
   "private": true,
   "description": "Gym Life 3D - browser version of the game, built with Three.js and procedural music",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2019 --outfile=game.js",
-    "dev": "esbuild src/main.js --bundle --format=iife --target=es2019 --outfile=game.js --watch --servedir=. --serve=8080"
+    "build": "esbuild src/main.js --bundle --loader:.glb=binary --minify --format=iife --target=es2019 --outfile=game.js",
+    "dev": "esbuild src/main.js --bundle --loader:.glb=binary --format=iife --target=es2019 --outfile=game.js --watch --servedir=. --serve=8080"
   },
   "dependencies": {
     "three": "^0.186.0"

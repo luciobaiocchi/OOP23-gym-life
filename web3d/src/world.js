@@ -960,7 +960,7 @@ export function buildHome() {
   box(2, 0.45, 0.45, wood, 0.5, 0.22, -5.05, s, true, 1);
   p.solid(0.5, -5.05, 2, 0.45);
   box(3.4, 0.01, 2.4, tmat('rug', tex.fabric('#a57a52', [8, 6]), { roughness: 1 }), 0.5, 0.005, -2, s, false);
-  p.interact(0.5, -0.4, 'Watch TV (+mood)', 'tv', null, 1.4);
+  p.interact(0.5, -0.4, 'Watch TV: gym legends', 'tv', null, 1.4);
   // mirror
   const mirror = box(1.1, 2, 0.04, M.mirror(), 6.97, 1.3, 1, s);
   mirror.rotation.y = Math.PI / 2;
