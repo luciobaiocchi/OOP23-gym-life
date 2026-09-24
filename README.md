@@ -45,4 +45,10 @@ Play online: https://luciobaiocchi.github.io/OOP23-gym-life/
 
 The `web3d/` folder contains a 3D version of the game with music, playable in the browser on any computer:
 use the link above or open `web3d/index.html`. Details in `web3d/README.md`.
-The site is published automatically to GitHub Pages on every push to `main` that changes `web3d/`.
+The site is published automatically to GitHub Pages on every push to `main` that changes `web3d/`, `web2d/` or the game resources.
+
+GYM LIFE 2D (browser port):
+Play online: https://luciobaiocchi.github.io/OOP23-gym-life/web2d/
+
+The `web2d/` folder is a JavaScript port of the original Java/Swing game, with the same rules, maps, minigames and sprites
+(loaded from `src/main/resources`). Open `web2d/index.html`, or use the "Play the original 2D version" button on the 3D title screen.

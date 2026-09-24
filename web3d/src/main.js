@@ -760,6 +760,12 @@ function showTitle() {
   credits.className = 'scores';
   credits.innerHTML = 'Character model: <a href="https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1" target="_blank" rel="noopener">"Male Body" by Alexander Antipov</a>, <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (rigged and modified)';
   document.querySelector('#panel .box').appendChild(credits);
+  // the original 2D game: ../web2d/ in the repo, web2d/ next to the 3D build on GitHub Pages
+  const to2d = document.createElement('a');
+  to2d.className = 'to2d';
+  to2d.href = location.pathname.includes('/web3d/') ? '../web2d/index.html' : 'web2d/index.html';
+  to2d.textContent = 'Play the original 2D version';
+  document.querySelector('#panel .box').appendChild(to2d);
 }
 
 // ---------------------------------------------------------------- LOOP

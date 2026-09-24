@@ -1,11 +1,13 @@
-# Pubblica Gym Life 3D (cartella web3d/) come sito statico su GitHub Pages.
-name: Deploy Gym Life 3D su GitHub Pages
+# Pubblica Gym Life 3D (web3d/) e il porting 2D (web2d/) come sito statico su GitHub Pages.
+name: Deploy Gym Life su GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
       - 'web3d/**'
+      - 'web2d/**'
+      - 'src/main/resources/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -43,6 +45,13 @@ jobs:
         run: |
           mkdir -p ../_site
           cp index.html style.css game.js ../_site/
+          # versione 2D e le risorse originali (immagini, font) che usa
+          cp -r ../web2d ../_site/web2d
+          mkdir -p ../_site/src/main
+          cp -r ../src/main/resources ../_site/src/main/resources
+          # il link 2D -> 3D punta a ../web3d/: sul sito il 3D e' nella radice
+          mkdir -p ../_site/web3d
+          echo '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=../"><a href="../">Gym Life 3D</a>' > ../_site/web3d/index.html
 
       - uses: actions/configure-pages@v6
 
