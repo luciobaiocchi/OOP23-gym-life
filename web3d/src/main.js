@@ -40,6 +40,7 @@ if (!webglAvailable()) {
 }
 
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+if (isTouch) document.body.classList.add('touch');
 const QUALITIES = ['low', 'medium', 'high'];
 let quality = store.get(QUALITY_KEY);
 if (!QUALITIES.includes(quality)) quality = isTouch ? 'low' : 'high';
@@ -137,6 +138,8 @@ const musicFor = (p) => (p.name === 'gym' ? GYM_STATIONS[station].id : p.music);
 function syncSpotify() {
   if (place.name === 'gym' && GYM_STATIONS[station].external && mode !== 'title') spotify.show();
   else spotify.hide();
+  // radio button (for touch screens and mouse users) only in the gym
+  document.getElementById('btn-radio').classList.toggle('hidden', place.name !== 'gym' || mode === 'title');
 }
 
 const player = new Character({ shirtless: true, shorts: 0x1b1d22 });
@@ -217,6 +220,8 @@ document.getElementById('btn-help').innerHTML = ICONS.help;
 document.getElementById('btn-mute').onclick = toggleMute;
 document.getElementById('btn-quality').onclick = toggleQuality;
 document.getElementById('btn-help').onclick = () => mode === 'play' && showHelp();
+document.getElementById('btn-radio').innerHTML = ICONS.radio;
+document.getElementById('btn-radio').onclick = () => { audio.init(); if (mode === 'play') nextStation(); };
 ui.onEat = (id) => mode === 'play' && eat(id);
 
 function toggleMute() {
@@ -249,8 +254,8 @@ function setPlace(id, spawn) {
   if (place.name === 'gym') {
     const st = GYM_STATIONS[station];
     setTimeout(() => ui.toast(st.external
-      ? 'Gym radio: your Spotify playlist. Press play on the player (R to switch station)'
-      : `Gym radio: ${st.name} (press R to switch)`), 600);
+      ? `Gym radio: your Spotify playlist. Press play on the player (${isTouch ? 'radio button' : 'R'} to switch station)`
+      : `Gym radio: ${st.name} (${isTouch ? 'radio button' : 'press R'} to switch)`), 600);
   }
 }
 
@@ -691,12 +696,23 @@ function newGame(diff, data = null) {
   broDay = -1;
   ui.showHud(true);
   setPlace('home');
+  syncSpotify();
   mode = 'play';
   ui.toast('Goal: get legs, chest and back to 100', 'good');
   if (!isTouch) setTimeout(() => ui.toast('Press H to see the controls'), 1500);
 }
 
 function controlsHtml() {
+  if (isTouch) {
+    return `<div class="controls">
+    <kbd>Left stick</kbd><span>Move</span>
+    <kbd>E button</kbd><span>Interact</span>
+    <kbd>Drag the screen</kbd><span>Rotate the camera</span>
+    <kbd>Food buttons</kbd><span>Eat from your inventory</span>
+    <kbd>Radio button</kbd><span>Switch the gym radio station</span>
+    <kbd>Screen button</kbd><span>Graphics quality (low / medium / high)</span>
+  </div>`;
+  }
   return `<div class="controls">
     <kbd>WASD / Arrows</kbd><span>Move (hold Shift to run)</span>
     <kbd>E / Space</kbd><span>Interact</span>
@@ -738,7 +754,7 @@ function showTitle() {
   }
   ui.dialog(`<h1 class="title">GYM LIFE 3D</h1>
     <p>Become the biggest bodybuilder in town. Train, eat well, earn money and keep your spirits up.</p>
-    ${controlsHtml()}
+    ${controlsHtml().replace('class="controls"', 'class="controls title-controls"')}
     <p style="color:var(--muted)">Choose the difficulty:</p>`, btns);
   const credits = document.createElement('p');
   credits.className = 'scores';
@@ -754,7 +770,10 @@ const lookTmp = new THREE.Vector3();
 let fpsFrames = 0, fpsTime = 0, fpsChecked = false;
 let stepTimer = 0;
 
+const touchEl = document.getElementById('touch');
 function update(dt, t) {
+  // on-screen joystick and E button only while walking around
+  if (isTouch) touchEl.classList.toggle('hidden', !(mode === 'play' && !ui.isOpen()));
   let mx = 0, mz = 0;
   if (mode === 'play') {
     if (keys.has('w') || keys.has('arrowup')) mz -= 1;

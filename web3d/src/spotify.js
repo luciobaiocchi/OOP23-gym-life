@@ -1,6 +1,9 @@
 // Gym radio station that plays a Spotify playlist through Spotify's official
 // embed player: the music streams from Spotify, nothing is copied into the game.
 
+// compact player on small screens
+const COMPACT = () => matchMedia('(max-width: 640px), (max-height: 500px)').matches;
+
 export const PLAYLIST_ID = '5GgdFifP9IKcXhZu21OG5n';
 
 export class SpotifyStation {
@@ -27,7 +30,7 @@ export class SpotifyStation {
       this.frame = f;
     };
     window.onSpotifyIframeApiReady = (api) => {
-      api.createController(slot, { uri: `spotify:playlist:${PLAYLIST_ID}`, width: '100%', height: 152 }, (c) => {
+      api.createController(slot, { uri: `spotify:playlist:${PLAYLIST_ID}`, width: '100%', height: COMPACT() ? 80 : 152 }, (c) => {
         this.controller = c;
       });
     };
