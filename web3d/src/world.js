@@ -726,6 +726,7 @@ export function buildGym() {
   s.add(bro.root);
   p.circles.push({ x: -6, z: 3.5, r: 0.5 });
   bro.setPose('flex');
+  p.interact(-4.7, 3.5, 'Parla col gym bro', 'bro', null, 1.5);
   p.updaters.push((dt) => bro.update(dt));
   // luci neon
   [-5, 0, 5].forEach((x) => {

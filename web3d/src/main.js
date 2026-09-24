@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GameState, FOODS, DIFFICULTIES, WORKOUT_STAMINA } from './state.js';
-import { Audio } from './audio.js';
+import { Audio, GYM_STATIONS } from './audio.js';
 import { Character } from './character.js';
 import { buildCity, buildHome, buildGym, buildShop, buildBank } from './world.js';
 import { UI, effectsHtml } from './ui.js';
@@ -10,6 +10,7 @@ const WORK_STAMINA = 20;
 const SAVE_KEY = 'gymlife3d.save';
 const SCORES_KEY = 'gymlife3d.scores';
 const QUALITY_KEY = 'gymlife3d.quality';
+const RADIO_KEY = 'gymlife3d.radio';
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -69,6 +70,11 @@ let place = places.city;
 let mode = 'title'; // title | play | busy | minigame | end
 let minigame = null;
 let tvDay = -1;
+let broDay = -1;
+let station = Math.max(0, GYM_STATIONS.findIndex((st) => st.id === store.get(RADIO_KEY)));
+
+// In palestra suona la stazione radio scelta, altrove la musica del luogo
+const musicFor = (p) => (p.name === 'gym' ? GYM_STATIONS[station].id : p.music);
 
 const player = new Character();
 const pos = new THREE.Vector3();
@@ -95,6 +101,7 @@ window.addEventListener('keydown', (e) => {
   if (mode !== 'play') return;
   if (k === 'e' || k === 'E' || k === 'Enter' || k === ' ') interact();
   else if (k === 'm' || k === 'M') toggleMute();
+  else if (k === 'r' || k === 'R') nextStation();
   else if (k === 'g' || k === 'G') toggleQuality();
   else if (k === 'h' || k === 'H') showHelp();
   else if (k === '1' || k === '2' || k === '3') eat(Object.keys(FOODS)[Number(k) - 1]);
@@ -171,7 +178,20 @@ function setPlace(id, spawn) {
   cam.pitch = 0.5;
   cam.snap = true;
   player.setPose('idle');
-  audio.play(place.music);
+  audio.play(musicFor(place));
+  if (place.name === 'gym') setTimeout(() => ui.toast(`📻 Radio Gym: ${GYM_STATIONS[station].name} — R per cambiare`), 600);
+}
+
+function nextStation() {
+  if (place.name !== 'gym') {
+    ui.toast('📻 La radio della palestra si sente solo in palestra!');
+    return;
+  }
+  station = (station + 1) % GYM_STATIONS.length;
+  store.set(RADIO_KEY, GYM_STATIONS[station].id);
+  audio.sfx('radio');
+  audio.play(musicFor(place));
+  ui.toast(`📻 ${GYM_STATIONS[station].name}`, 'good');
 }
 
 async function travel(id, spawn) {
@@ -208,6 +228,7 @@ function interact() {
     case 'workout': workoutDialog(it.data); break;
     case 'work': startWork(); break;
     case 'plane': planeDialog(); break;
+    case 'bro': talkToBro(); break;
     default: break;
   }
 }
@@ -278,6 +299,28 @@ function eat(id) {
   audio.sfx('eat');
   ui.toast(`${f.icon} Gnam! ${f.name}`, 'good');
   checkEnd();
+}
+
+const BRO_TIPS = [
+  'Bro, le gambe non si saltano MAI. Il leg day è sacro! 🦵',
+  'Proteine a ogni pasto, bro. Le bistecche sono tue amiche 🥩',
+  'Senza sonno niente gains. Dormi, bro 😴',
+  'Carico pesante = più gains... ma solo se chiudi le ripetizioni! 🏋️',
+  'Se sei giù di morale guardati un po\' di TV, poi torna a spingere 📺',
+  'Soldi finiti? Vai in banca a contare banconote, bro 💵',
+  'Il gelato ogni tanto ci sta. Il pusher invece no, bro 🙅',
+];
+
+function talkToBro() {
+  const day = state.totalDays - state.days;
+  mode = 'busy';
+  audio.shout('bro');
+  const first = broDay !== day;
+  if (first) { broDay = day; state.apply({ happiness: 5 }); }
+  ui.dialog(`<div class="big">🤜🤛</div><h2>Gym bro</h2><p>${BRO_TIPS[Math.floor(Math.random() * BRO_TIPS.length)]}</p>
+    ${first ? effectsHtml({ happiness: 5 }) : ''}`, [
+    { label: 'We\'re gonna make it! 💪', cls: 'primary', cb: () => { mode = 'play'; } },
+  ]);
 }
 
 function watchTv() {
@@ -368,7 +411,7 @@ function endMinigame() {
   pos.copy(saved.pos);
   heading = saved.heading;
   player.setPose('idle');
-  audio.play(place.music);
+  audio.play(musicFor(place));
 }
 
 function startWorkout(ex, level) {
@@ -423,7 +466,9 @@ function startWorkout(ex, level) {
       camLook = V(group.position.x, 1.3, group.position.z);
     }
   };
-  beginMinigame(setup, camPos || new THREE.Vector3(), camLook || new THREE.Vector3(), 'workout');
+  beginMinigame(setup, camPos || new THREE.Vector3(), camLook || new THREE.Vector3(), null);
+  audio.sfx('airhorn');
+  audio.shout('start');
   cam.fixed = { pos: camPos, look: camLook };
   minigame = e.game({
     ui, audio, char: player,
@@ -435,6 +480,7 @@ function startWorkout(ex, level) {
       state.apply({ [e.group]: gain, stamina: -WORKOUT_STAMINA, happiness: score >= 0.5 ? 4 : -4 });
       const delta = { [e.group]: Math.round(state[e.group]) - before, stamina: -WORKOUT_STAMINA, happiness: score >= 0.5 ? 4 : -4 };
       audio.sfx(score >= 0.5 ? 'levelup' : 'bad');
+      if (score >= 0.8) { audio.sfx('airhorn'); audio.shout('great'); } else if (score < 0.5) audio.shout('bad');
       mode = 'busy';
       const pct = Math.round(score * 100);
       ui.dialog(`<div class="big">${pct >= 80 ? '🏆' : pct >= 50 ? '💪' : '😓'}</div><h2>${e.name}: ${pct}%</h2>
@@ -546,6 +592,7 @@ function newGame(diff, data = null) {
   });
   state.emit();
   tvDay = -1;
+  broDay = -1;
   ui.showHud(true);
   setPlace('home');
   mode = 'play';
@@ -560,6 +607,7 @@ function controlsHtml() {
     <kbd>Mouse (trascina)</kbd><span>Ruota la visuale · rotella = zoom</span>
     <kbd>1 2 3</kbd><span>Mangia dal tuo inventario</span>
     <kbd>M</kbd><span>Musica on/off</span>
+    <kbd>R</kbd><span>Cambia stazione della radio in palestra</span>
     <kbd>G</kbd><span>Qualità grafica (usa ⚡ su PC lenti)</span>
   </div>`;
 }
@@ -729,7 +777,7 @@ function loop() {
 // esposto per debug / test automatici
 window.__gym = {
   get state() { return state; }, get mode() { return mode; }, get place() { return place; },
-  pos, travel, startWorkout, startWork, startPlane, mirror, encounter, sleep,
+  pos, audio, travel, startWorkout, startWork, startPlane, mirror, encounter, sleep,
 };
 
 showTitle();

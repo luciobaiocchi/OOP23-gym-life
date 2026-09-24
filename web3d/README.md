@@ -15,7 +15,7 @@ Game over se **energia** o **umore** arrivano a 0.
 | Luogo | Cosa fare |
 |---|---|
 | 🏠 Casa | Dormi (nuovo giorno, energia piena, salvataggio automatico), mangia dal frigo, guarda la TV, mettiti in posa allo specchio |
-| 🏋️ Palestra | Squat (gambe), panca piana (petto), lat machine (schiena): ogni esercizio è un minigioco, il guadagno dipende da quanto giochi bene e dal carico scelto |
+| 🏋️ Palestra | Radio con musica da gym bro (R per cambiare stazione), un gym bro che ti motiva, e squat (gambe), panca piana (petto), lat machine (schiena): ogni esercizio è un minigioco, il guadagno dipende da quanto giochi bene e dal carico scelto |
 | 🛒 Supermercato | Compra hamburger, broccoli e bistecche (stessi valori della versione Java) |
 | 🏦 Banca | Lavora contando banconote oppure investi nel gioco dell'aereo |
 | 🌆 Città | Uscendo dagli edifici possono capitare imprevisti (rapinatore, gym bro, gelati...) |
@@ -28,6 +28,7 @@ Game over se **energia** o **umore** arrivano a 0.
 | Trascina il mouse · rotella | Ruota visuale · zoom |
 | 1 2 3 | Mangia dall'inventario |
 | M | Musica on/off |
+| R | Cambia stazione della radio in palestra |
 | G | Qualità grafica alta / prestazioni |
 | H | Aiuto |
 
@@ -37,6 +38,7 @@ Su dispositivi touch compaiono un joystick virtuale e il tasto **E**.
 
 - **Motore grafico: [Three.js](https://threejs.org/) (WebGL).** Scelto perché gira in qualsiasi browser senza plugin né installazioni, anche su PC datati e grafiche integrate. Tutti i modelli sono low-poly generati via codice: niente asset da scaricare.
 - **Musica: Web Audio API.** Colonna sonora *procedurale* sintetizzata in tempo reale (batteria, basso, pad, arpeggi, melodia), con un brano diverso per menu, città, casa, palestra, allenamento, supermercato, banca, vittoria e game over, e dissolvenze tra un brano e l'altro. Più effetti sonori.
+- **Radio Gym:** in palestra si sceglie tra *Drift Phonk* (campanacci 808 e bassi distorti), *Hardstyle Pump* (cassa distorta e supersaw a 150 BPM), *Gym Rap* (trap con 808 e hi-hat in terzine) ed *Euro Gym*. Airhorn a inizio allenamento e frasi da gym bro ("Light weight baby!", "Yeah buddy!") con la sintesi vocale del browser.
 - **Prestazioni:** se il gioco rileva meno di ~28 FPS passa da solo alla modalità "prestazioni" (niente ombre, risoluzione ridotta). Si può cambiare con **G**.
 
 ## Pubblicazione (GitHub Pages)

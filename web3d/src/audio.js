@@ -70,6 +70,55 @@ const TRACKS = {
   },
 };
 
+// ---- Radio della palestra: musica da gym bro ----
+// Ogni brano ha uno scheduler dedicato (vedi Audio.gymStep)
+const nF = 77, nAb = 80, nBb = 82, nC = 84, nDb = 85, nEb = 75;
+const PHONK_RIFF = [
+  [nF, null, nF, nAb, nF, null, nC, null, nF, nF, nAb, nBb, nDb, nC, nAb, null],
+  [nF, null, nF, nAb, nF, null, nC, null, nBb, nBb, nAb, nF, nEb, nF, null, null],
+];
+const HARD_LEAD = [
+  [69, 72, 76, 72, 74, 72, 69, 67],
+  [65, 69, 72, 69, 74, 72, 69, 65],
+  [64, 67, 72, 67, 76, 74, 72, 67],
+  [67, 71, 74, 71, 79, 76, 74, 71],
+];
+const TRAP_BELL = [
+  [75, 82, 78, 82, 75, 82, 85, 82],
+  [75, 82, 78, 82, 87, 85, 82, 78],
+  [71, 78, 75, 78, 71, 78, 83, 78],
+  [73, 80, 77, 80, 85, 82, 80, 77],
+];
+
+Object.assign(TRACKS, {
+  phonk: {
+    bpm: 128, chords: [[41], [41], [37], [39]], swing: 0, gym: 'phonk',
+    kick: P('x......x..x.....'), snare: P('....x.......x...'),
+  },
+  hardstyle: {
+    bpm: 150, chords: [[45], [41], [48], [43]], swing: 0, gym: 'hardstyle',
+    kick: P('x...x...x...x...'), snare: P('....x.......x...'),
+  },
+  gymrap: {
+    bpm: 140, chords: [[39], [39], [35], [37]], swing: 0, gym: 'gymrap',
+    kick: P('x.....x...x..x..'), snare: P('........x.......'),
+  },
+});
+
+export const GYM_STATIONS = [
+  { id: 'phonk', name: 'DRIFT PHONK 🚗' },
+  { id: 'hardstyle', name: 'HARDSTYLE PUMP ⚡' },
+  { id: 'gymrap', name: 'GYM RAP 🔥' },
+  { id: 'gym', name: 'EURO GYM 💪' },
+];
+
+const BRO_LINES = {
+  start: ['Light weight baby!', 'Yeah buddy!', 'Let\'s go!', 'One more rep!', 'Come on, push it!'],
+  great: ['Ain\'t nothin\' but a peanut!', 'Yeah buddy! Light weight!', 'Beast mode!'],
+  bad: ['No pain, no gain!', 'Come on bro, focus!'],
+  bro: ['Yo bro!', 'Do you even lift, bro?', 'We\'re gonna make it, bro!', 'Never skip leg day!'],
+};
+
 // Generatore pseudo-casuale deterministico per melodie ripetibili
 function rng(seed) {
   let s = seed >>> 0;
@@ -160,8 +209,15 @@ export class Audio {
     bus.gain.setValueAtTime(0, now);
     bus.gain.linearRampToValueAtTime(1, now + 0.8);
     bus.connect(this.musicGain);
+    // saturazione per 808 e kick "hard"
+    const drive = ctx.createWaveShaper();
+    drive.curve = this.distCurve(track.gym === 'hardstyle' ? 60 : 25);
+    drive.oversample = '2x';
+    const driveOut = ctx.createGain();
+    driveOut.gain.value = 0.35;
+    drive.connect(driveOut).connect(bus);
     const melody = this.makeMelody(track, name.length * 97 + track.bpm);
-    const cur = { name, bus, track, melody, step: 0, next: now + 0.1 };
+    const cur = { name, bus, drive, track, melody, step: 0, next: now + 0.1 };
     const spb = 60 / track.bpm / 4; // secondi per sedicesimo
     cur.timer = setInterval(() => {
       while (cur.next < ctx.currentTime + 0.2) {
@@ -201,6 +257,8 @@ export class Audio {
     const bar = Math.floor(step / 16);
     const chord = track.chords[bar % track.chords.length];
     const spb = 60 / track.bpm / 4;
+
+    if (track.gym) { this.gymStep(cur, s, bar, t, spb); return; }
 
     if (track.kick[s]) this.kick(t, bus);
     if (track.snare[s]) this.snare(t, bus);
@@ -290,6 +348,172 @@ export class Audio {
     this.noiseHit(t, dest, vol, 0.04, 'highpass', 8000);
   }
 
+  distCurve(k) {
+    const n = 1024, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      c[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+    }
+    return c;
+  }
+
+  // Basso 808 con glide opzionale dalla nota precedente
+  bass808(t, midi, dur, dest, from = null, vol = 0.9) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    const f = midiToFreq(midi);
+    o.frequency.setValueAtTime(from ? midiToFreq(from) : f * 1.5, t);
+    o.frequency.exponentialRampToValueAtTime(f, t + (from ? 0.09 : 0.03));
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.005);
+    g.gain.setValueAtTime(vol, t + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(dest);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
+  // Campanaccio 808 intonato: il suono tipico della phonk
+  cowbell(t, midi, dest, vol = 0.07) {
+    const ctx = this.ctx;
+    const f = midiToFreq(midi);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = f * 1.3;
+    bp.Q.value = 1.2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(vol * 0.3, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    [1, 1.48].forEach((m) => {
+      const o = ctx.createOscillator();
+      o.type = 'square';
+      o.frequency.value = f * m;
+      o.connect(bp);
+      o.start(t);
+      o.stop(t + 0.4);
+    });
+    bp.connect(g).connect(dest);
+    g.connect(this.delay);
+  }
+
+  // Cassa hardstyle: attacco secco e coda distorta intonata
+  hardKick(t, midi, dest) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.frequency.setValueAtTime(400, t);
+    o.frequency.exponentialRampToValueAtTime(midiToFreq(midi), t + 0.05);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(1.4, t);
+    g.gain.setValueAtTime(1.1, t + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+    o.connect(g).connect(dest);
+    o.start(t);
+    o.stop(t + 0.36);
+  }
+
+  supersaw(t, midi, dur, dest, vol = 0.03) {
+    const ctx = this.ctx;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 5200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.01);
+    g.gain.setValueAtTime(vol, t + dur * 0.8);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.1);
+    [-14, -6, 0, 7, 15].forEach((cents) => {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = midiToFreq(midi);
+      o.detune.value = cents;
+      o.connect(lp);
+      o.start(t);
+      o.stop(t + dur + 0.15);
+    });
+    lp.connect(g).connect(dest);
+    g.connect(this.delay);
+  }
+
+  clap(t, dest, vol = 0.25) {
+    [0, 0.011, 0.022].forEach((o, i) => this.noiseHit(t + o, dest, vol * (i === 2 ? 1 : 0.6), i === 2 ? 0.16 : 0.01, 'bandpass', 1300));
+  }
+
+  bell(t, midi, dest, vol = 0.06) {
+    this.tone(midi, t, 0.05, 'sine', vol, dest, 6000, 0.002, 0.5, true);
+    this.tone(midi + 12, t, 0.03, 'triangle', vol * 0.3, dest, 6000, 0.002, 0.25);
+  }
+
+  // Sequencer dei brani della radio della palestra
+  gymStep(cur, s, bar, t, spb) {
+    const { track, bus, drive } = cur;
+    const root = track.chords[bar % track.chords.length][0];
+    const style = track.gym;
+    const hat = (tt, v = 0.035) => this.hat(tt, bus, v);
+
+    if (style === 'phonk') {
+      if (track.kick[s]) {
+        this.kick(t, bus, 0.6);
+        // 808 fino al colpo di cassa successivo, con glide sull'ultimo della battuta
+        let len = 1;
+        while (len < 16 && !track.kick[(s + len) % 16]) len++;
+        this.bass808(t, root, spb * len * 0.95, drive, s === 10 && bar % 2 ? root + 12 : null);
+      }
+      if (track.snare[s]) { this.clap(t, bus); this.snare(t, bus); }
+      hat(t, s % 2 ? 0.02 : 0.04);
+      if (bar % 2 && s >= 14) hat(t + spb / 2, 0.03); // rullata
+      const note = PHONK_RIFF[bar % 2][s];
+      if (note && bar % 8 !== 7) this.cowbell(t, note, bus);
+      if (s === 0 && bar % 4 === 0) this.noiseHit(t, bus, 0.08, 1.2, 'highpass', 5000); // crash
+    } else if (style === 'hardstyle') {
+      if (track.kick[s]) this.hardKick(t, root - 12, drive);
+      if (track.snare[s]) this.clap(t, bus, 0.3);
+      if (s % 4 === 2) { hat(t, 0.06); this.tone(root, t, spb * 1.5, 'sawtooth', 0.09, bus, 700); }
+      const breakdown = bar % 16 >= 12;
+      if (s % 2 === 0) {
+        const n = HARD_LEAD[bar % 4][s / 2];
+        this.supersaw(t, n + 12, spb * 1.8, bus, breakdown ? 0.045 : 0.03);
+      }
+      if (s === 0) {
+        [0, 3, 7].forEach((iv) => this.supersaw(t, root + 24 + iv, spb * 15, bus, 0.008));
+        if (bar % 4 === 0) this.noiseHit(t, bus, 0.1, 1.5, 'highpass', 4000);
+      }
+    } else if (style === 'gymrap') {
+      if (track.kick[s]) {
+        this.kick(t, bus, 0.55);
+        let len = 1;
+        while (len < 16 && !track.kick[(s + len) % 16]) len++;
+        this.bass808(t, root, spb * len, drive, s === 13 ? root + 7 : null);
+      }
+      if (track.snare[s]) { this.snare(t, bus); this.clap(t, bus, 0.2); }
+      // hi-hat trap: ottavi con terzine e rullate
+      if (s % 2 === 0) hat(t);
+      if (s === 6 || s === 7) { hat(t + spb / 3, 0.025); hat(t + (2 * spb) / 3, 0.025); }
+      if (bar % 2 && s >= 12) { hat(t + spb / 2, 0.03); hat(t + spb / 4, 0.02); hat(t + (3 * spb) / 4, 0.02); }
+      if (s % 2 === 0) this.bell(t, TRAP_BELL[bar % 4][s / 2], bus);
+      if (s === 0) this.tone(root + 24, t, spb * 15, 'triangle', 0.035, bus, 900, 0.3, 0.8);
+    }
+  }
+
+  // Frasi da gym bro con la sintesi vocale del browser (se disponibile)
+  shout(kind) {
+    const lines = BRO_LINES[kind];
+    if (!lines || this.muted || !('speechSynthesis' in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(lines[Math.floor(Math.random() * lines.length)]);
+      u.lang = 'en-US';
+      u.pitch = 0.4;
+      u.rate = 1.05;
+      u.volume = 1;
+      const voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith('en'));
+      if (voice) u.voice = voice;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    } catch (e) { /* sintesi vocale non disponibile */ }
+  }
+
   // ---- effetti sonori ----
   sfx(name) {
     if (!this.ctx) return;
@@ -310,6 +534,13 @@ export class Audio {
       case 'step': this.noiseHit(t, d, 0.04, 0.05, 'lowpass', 400); break;
       case 'crash': this.noiseHit(t, d, 0.5, 0.8, 'lowpass', 1200); seq([48, 43, 36], 0.12, 'sawtooth', 0.12); break;
       case 'event': seq([69, 72, 76, 81], 0.07, 'triangle', 0.12); break;
+      case 'airhorn':
+        [0, 0.16, 0.32, 0.5].forEach((o, i) => [0, 4, 7].forEach((iv) => {
+          const len = i === 3 ? 0.6 : 0.12;
+          this.tone(69 + iv, t + o, len, 'sawtooth', 0.05, d, 3500, 0.005, 0.05);
+        }));
+        break;
+      case 'radio': this.noiseHit(t, d, 0.15, 0.25, 'bandpass', 2500); seq([81, 88], 0.05, 'square', 0.06); break;
       default: break;
     }
   }
