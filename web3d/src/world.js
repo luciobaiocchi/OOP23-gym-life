@@ -282,7 +282,7 @@ function car(color) {
     mat(color, { roughness: 0.25, metalness: 0.7, envMapIntensity: 1.2 }),
   );
   body.rotation.y = -Math.PI / 2;
-  body.position.x = -0.85;
+  body.position.x = 0.85;
   body.castShadow = true;
   g.add(body);
   // windows
@@ -290,10 +290,10 @@ function car(color) {
   [[0.75, 1.07], [0.28, 1.46], [-1.25, 1.48], [-1.85, 1.2], [-1.8, 1.07]].forEach(([a, b], i) => (i ? wshape.lineTo(a, b) : wshape.moveTo(a, b)));
   const win = new THREE.Mesh(new THREE.ExtrudeGeometry(wshape, { depth: 1.82, bevelEnabled: false }), M.glass());
   win.rotation.y = -Math.PI / 2;
-  win.position.x = -0.91;
+  win.position.x = 0.91;
   g.add(win);
   // wheels
-  [[-0.88, 1.35], [0.88, 1.35], [-0.88, -1.35], [0.88, -1.35]].forEach(([x, z]) => {
+  [[-0.86, 1.35], [0.86, 1.35], [-0.86, -1.35], [0.86, -1.35]].forEach(([x, z]) => {
     const w = cyl(0.36, 0.36, 0.26, mat(0x151515, { roughness: 0.9 }), x, 0.36, z, g, 18);
     w.rotation.z = Math.PI / 2;
     const rim = cyl(0.2, 0.2, 0.27, M.chrome(), x, 0.36, z, g, 12);
@@ -710,8 +710,10 @@ export function buildCity() {
   const shirts = [0x2e5c8a, 0x3f7d5c, 0x8a2e2e, 0xc8b28a, 0x4b3d6e];
   const skins = [0xd9a07c, 0x8d5524, 0xf1c9a5, 0xc68642, 0xe8b996];
   pedRoutes.forEach((route, i) => {
-    const npc = new Character({ shirt: shirts[i], skin: skins[i], hair: [0x2a1a10, 0x111111, 0x6b4a2b, 0x3a2615, 0x9a7b4f][i] });
-    npc.setMuscles(r() * 30, r() * 30, r() * 30);
+    const npc = new Character({
+      shirt: shirts[i], skin: skins[i], hair: [0x2a1a10, 0x111111, 0x6b4a2b, 0x3a2615, 0x9a7b4f][i],
+      shorts: [0x1f2733, 0x3b3b3b, 0x2c3e2d, 0x1a1a1a, 0x4a3b2a][i], muscles: [r() * 30, r() * 30, r() * 30],
+    });
     npc.root.scale.setScalar(0.94 + r() * 0.1);
     s.add(npc.root);
     const ped = {
@@ -1084,8 +1086,7 @@ export function buildGym() {
   cyl(0.15, 0.15, 0.4, mat(0x6fb3e0, { transparent: true, opacity: 0.7, roughness: 0.05 }), -8.3, 1.3, 0, s, 16);
   p.circles.push({ x: -8.3, z: 0, r: 0.35 });
   // the gym bro
-  const bro = new Character({ shirt: 0x111111, skin: 0x8d5524, hair: 0x0c0c0c });
-  bro.setMuscles(90, 95, 90);
+  const bro = new Character({ shirt: 0x111111, skin: 0x8d5524, hair: 0x0c0c0c, muscles: [90, 95, 90] });
   bro.root.position.set(-6, 0, 3.5);
   bro.root.rotation.y = Math.PI / 2;
   s.add(bro.root);

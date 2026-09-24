@@ -484,7 +484,7 @@ function startWorkout(ex, level) {
       pos.set(group.position.x, 0, group.position.z);
       heading = 0;
       player.spine.add(barbell);
-      barbell.position.set(0, 0.56, -0.16);
+      barbell.position.set(0, 0.52, -0.14);
       restore = () => { group.add(barbell); barbell.position.set(0, 1.5, 0); };
       camPos = V(group.position.x + 3.2, 2.2, group.position.z + 4.2);
       camLook = V(group.position.x, 1.0, group.position.z);
@@ -844,7 +844,7 @@ function loop() {
 // exposed for debugging / automated tests
 window.__gym = {
   get state() { return state; }, get mode() { return mode; }, get place() { return place; },
-  pos, audio, travel, startWorkout, startWork, startPlane, mirror, encounter, sleep,
+  pos, cam, player, audio, travel, startWorkout, startWork, startPlane, mirror, encounter, sleep,
 };
 
 showTitle();
