@@ -4,9 +4,9 @@ Versione 3D di **Gym Life**, giocabile nel browser su qualsiasi PC (Windows, mac
 
 ## Come giocare
 
-**Nessuna installazione:** apri `index.html` con un browser moderno (Chrome, Edge, Firefox, Safari). Funziona anche offline, con doppio clic sul file.
+### 🎮 [Gioca online → luciobaiocchi.github.io/OOP23-gym-life](https://luciobaiocchi.github.io/OOP23-gym-life/)
 
-In alternativa, servendo la cartella con un web server statico qualsiasi (es. GitHub Pages).
+Oppure, **senza installare nulla**, apri `index.html` con un browser moderno (Chrome, Edge, Firefox, Safari): funziona anche offline, con doppio clic sul file.
 
 ### Obiettivo
 Porta **gambe, petto e schiena a 100** prima che finiscano i giorni.
@@ -38,6 +38,13 @@ Su dispositivi touch compaiono un joystick virtuale e il tasto **E**.
 - **Motore grafico: [Three.js](https://threejs.org/) (WebGL).** Scelto perché gira in qualsiasi browser senza plugin né installazioni, anche su PC datati e grafiche integrate. Tutti i modelli sono low-poly generati via codice: niente asset da scaricare.
 - **Musica: Web Audio API.** Colonna sonora *procedurale* sintetizzata in tempo reale (batteria, basso, pad, arpeggi, melodia), con un brano diverso per menu, città, casa, palestra, allenamento, supermercato, banca, vittoria e game over, e dissolvenze tra un brano e l'altro. Più effetti sonori.
 - **Prestazioni:** se il gioco rileva meno di ~28 FPS passa da solo alla modalità "prestazioni" (niente ombre, risoluzione ridotta). Si può cambiare con **G**.
+
+## Pubblicazione (GitHub Pages)
+
+Il workflow [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) ricompila il gioco e lo pubblica come sito statico
+a ogni push su `main` che tocca `web3d/` (si può anche lanciare a mano da *Actions → Run workflow*).
+
+Configurazione da fare una sola volta: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
 ## Sviluppo
 
