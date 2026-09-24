@@ -6,6 +6,8 @@ A 3D version of **Gym Life** that runs in the browser on any computer (Windows, 
 
 ### [Play online: luciobaiocchi.github.io/OOP23-gym-life](https://luciobaiocchi.github.io/OOP23-gym-life/)
 
+The original 2D game is also playable in the browser: [luciobaiocchi.github.io/OOP23-gym-life/web2d](https://luciobaiocchi.github.io/OOP23-gym-life/web2d/) (button on the title screen).
+
 Or, **with nothing to install**, open `index.html` in a modern browser (Chrome, Edge, Firefox, Safari). It also works offline by double-clicking the file.
 
 ### Goal

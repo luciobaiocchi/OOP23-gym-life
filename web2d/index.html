@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gym Life 2D</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="start"></div>
+  <div id="frame" style="display:none">
+    <div id="scene"></div>
+    <div id="side"></div>
+  </div>
+  <div id="touch" class="hidden">
+    <div class="dpad">
+      <button data-k="w" class="up">&#9650;</button>
+      <button data-k="a" class="left">&#9664;</button>
+      <button data-k="d" class="right">&#9654;</button>
+      <button data-k="s" class="down">&#9660;</button>
+    </div>
+    <button data-k="e" class="act">E</button>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
