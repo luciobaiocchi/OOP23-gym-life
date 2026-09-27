@@ -1,82 +1,77 @@
-# Gym Life 3D
+# Gym Life 3D · Street to Legend
 
-A 3D version of **Gym Life** that runs in the browser on any computer (Windows, macOS, Linux, Chromebook) and on phones and tablets.
+A browser-only 3D life and sports game built with Three.js. Train, explore Oakside, compete at Riverside Athletic Club and grow from rookie to city legend. This edition changes only `web3d/`; the Java and original 2D games keep their own rules.
 
-## How to play
+**[Play online](https://luciobaiocchi.github.io/OOP23-gym-life/)** · Or open `index.html` directly, including offline. The model, scenery and procedural soundtrack are bundled locally. Spotify and YouTube are optional online features.
 
-### [Play online: luciobaiocchi.github.io/OOP23-gym-life](https://luciobaiocchi.github.io/OOP23-gym-life/)
+## What’s new
 
-The original 2D game is also playable in the browser: [luciobaiocchi.github.io/OOP23-gym-life/web2d](https://luciobaiocchi.github.io/OOP23-gym-life/web2d/) (button on the title screen).
+- **Animated, skill-based workouts:** hold and release to control squat depth; time the bench press with the moving bar; alternate lat pulls on the beat. The skeleton, barbell, cable and weight stack follow the exercise. Eight reps, perfect windows, combo feedback and personal records replace the old colour quiz and key-mashing.
+- **Riverside Sports Park:** enter through the marked sign by the city fountain in the southeast. Basketball has five shooting positions and animated ball trajectories. Boxing combines jabs, crosses and dodging the swinging bag. The running circuit takes you through eight checkpoints on a traffic-free track.
+- **Career:** earn XP, climb ten levels, complete six missions and a daily three-session challenge. Street, Club (level 3) and Pro (level 5) leagues award permanent medals and first-win prizes. Better levels reduce gym energy costs and improve sprint speed.
+- **Player movement:** acceleration, directional turning, a leaning sprint animation, rechargeable sprint breath, jumping and a smooth sprint camera. Collision movement uses small steps to avoid walking through thin objects.
+- **More interactions:** free daily water and bench recovery, four unlockable outfits at the home mirror, three hidden golden dumbbells with permanent rewards, highlighted interaction markers and a map with destination pins.
+- **Fairer progression:** useful food, starter supplies, lower workout costs, fewer interruptions and positive practice rewards. Training preserves at least one energy point. Sprint breath is separate from daily energy.
+- **Save anywhere:** progress, location, career, records, collectibles and daily recovery are saved after actions and when leaving the page. Original saves migrate automatically. Escape pauses an active session; abandoning it restores the equipment and does not refund the energy already spent.
+- **Browser performance:** spatially grouped static scenery, lazy interior/park construction, cached HUD updates and a map drawn at 10 Hz. High-quality postprocessing is allocated only when selected. Automatic quality adjustment measures real frame time, and background tabs pause simulation and rendering.
 
-Or, **with nothing to install**, open `index.html` in a modern browser (Chrome, Edge, Firefox, Safari). It also works offline by double-clicking the file.
+## Goal and controls
 
-### Goal
-Get **legs, chest and back to 100** before you run out of days.
-It's game over if **energy** or **mood** drop to 0.
+Reach **100 legs, chest and back** within 40 / 30 / 20 days on Easy / Normal / Hard. Running out of days, energy or mood ends the run. Train, eat, recover and sleep to balance your days; outdoor sports also improve your muscles.
 
-| Place | What you can do |
+| Input | Action |
 |---|---|
-| Home | Sleep (next day, full energy, autosave), eat from the fridge, watch TV, pose in the mirror |
-| Gym | Gym radio (R switches station), talk to your gym bro, and train: squat (legs), bench press (chest), lat pulldown (back). Every exercise is a minigame; gains depend on how well you play and on the load you pick |
-| Supermarket | Buy burgers, broccoli and steak (same values as the Java version) |
-| Bank | Work by counting banknotes, or invest in the plane game |
-| City | Random encounters when you leave a building (robber, gym bro, ice cream truck...) |
+| WASD / arrows | Move relative to the camera |
+| Shift | Sprint; release it to recover breath |
+| Space | Jump while exploring; action/hold during a minigame |
+| E / Enter | Use the highlighted interaction |
+| Drag / mouse wheel | Rotate / zoom the camera |
+| J | Career, missions, records and destination pins |
+| Esc | Pause/resume a session, or close supported dialogs |
+| 1 / 2 / 3 | Eat a burger / broccoli / steak |
+| M / R | Toggle music / switch gym radio station |
+| G / H | Cycle Low, Medium and High quality / help |
 
-### Controls
-| Key | Action |
+On mobile, use the joystick, **E**, **RUN** and jump buttons. Workouts and sports have touch controls, including hold-and-release buttons. A phone in landscape keeps the minigame beside the 3D action.
+
+| Place | Activities |
 |---|---|
-| WASD / arrows | Move (hold Shift to run) |
-| E / Space / Enter | Interact |
-| Mouse drag, wheel | Rotate camera, zoom |
-| 1 2 3 | Eat from your inventory |
-| M | Music on/off |
-| R | Switch the gym radio station |
-| G | Graphics quality: low / medium / high |
-| H | Help |
+| Home | Sleep, eat, watch gym legends, pose and change outfit |
+| Iron House gym | Squat, bench press, lat pulldown, water and gym bro |
+| Riverside park | Basketball, boxing, circuit, recovery bench, fountain and career board |
+| Supermarket | Buy food; prices and effects are shown before buying |
+| Bank | Banknote job or the original fictional plane investment minigame |
+| City | Explore, follow map pins, discover golden dumbbells and random encounters |
 
-On touch devices a virtual joystick and an **E** button appear.
-
-## Technology
-
-- **Engine: [Three.js](https://threejs.org/) (WebGL).** Runs in any browser without plugins or installs, including older PCs with integrated graphics.
-- **Graphics:** physically based materials, ACES tone mapping, a physical sky that also lights the scene, soft shadows and, on high quality, ambient occlusion. All textures (asphalt, brick, plaster, wood, marble, grass...) are generated procedurally at startup, so there are no image files to download.
-- **Characters:** based on the ["Male Body" model by Alexander Antipov](https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Changes made for the game: welded vertices and smooth normals, an automatic skeleton and skin weights, region-based muscle growth driven by the stats, and clothes, sneakers and a buzz cut painted as vertex colours. The model is embedded in `game.js`, so the game still works offline.
-- **TV:** at home the TV plays gym legends (Ronnie Coleman, Chris Bumstead, Zyzz) through YouTube's official embed player. Video IDs live in `src/tv.js`; the menu shows their YouTube thumbnails.
-- **Living city:** cars drive on the right, stop at red lights and for anyone in front of them; pedestrians walk on the sidewalks, wait for the green light and never walk through walls, cars, other people or the player.
-- **Music: Web Audio API.** A *procedural* soundtrack synthesised in real time (drums, bass, pads, arpeggios, melody), with a different track for the menu, city, home, supermarket, bank, win and game over, plus sound effects.
-- **Spotify in the gym:** the first gym radio station is a Spotify playlist played through Spotify's official embed player (streamed from Spotify, no audio copied into the game; full tracks need a Spotify login, otherwise previews). Change the playlist in `src/spotify.js`.
-- **Gym radio:** *Drift Phonk* (808 cowbells and distorted bass), *Hardstyle Pump* (distorted kick and supersaws at 150 BPM), *Gym Rap* (trap with 808s and triplet hi-hats) and *Euro Gym*. An air horn at the start of each workout and gym bro one-liners ("Light weight baby!", "Yeah buddy!") through the browser's speech synthesis.
-- **Performance:** three quality levels. If the game runs below ~28 FPS it steps down on its own (no ambient occlusion, then no shadows and a lower resolution). Press **G** to choose manually.
-
-## Publishing (GitHub Pages)
-
-The [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) workflow rebuilds the game and publishes it as a static site
-on every push to `main` that touches `web3d/` (it can also be started by hand from *Actions → Run workflow*).
-
-One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-
-## Development
+## Development and checks
 
 ```bash
 cd web3d
-npm install
-npm run dev     # local server on http://localhost:8080 with automatic rebuilds
-npm run build   # regenerates game.js (single bundle, already committed)
+npm ci
+npm run dev          # http://localhost:8080, rebuilds on changes
+npm run build        # regenerate the committed standalone game.js
+npm test             # model, save migration, progression and reward invariants
+npx playwright install chromium
+npm run test:browser # desktop/mobile browser integration; requires python3 for the static server
 ```
 
-Source layout in `src/`:
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE` can point to an existing Chromium executable. The browser suite checks movement, interactions, all gym exercises, actual skeleton animation, basketball, boxing, checkpoints, pause/cancel, save/resume, mobile touch and all rendering quality levels. Some full-session tests advance simulation directly to avoid depending on GPU speed; frame-rate performance must still be measured on the intended device.
 
-| File | Contents |
+| File | Responsibility |
 |---|---|
-| `main.js` | Renderer, sky and lighting, game loop, input, camera, interaction logic |
-| `state.js` | Model: stats, food, encounters, difficulty |
-| `world.js` | City (buildings, traffic, pedestrians) and interiors, collisions |
-| `textures.js` | Procedural textures |
-| `character.js` | Character with poses/animations and growing muscles |
-| `minigames.js` | Gym and bank minigames |
-| `audio.js` | Music sequencer, gym radio and sound effects |
-| `ui.js` | HUD, dialogs, notifications |
+| `src/main.js` | Game loop, player, camera, sessions, travel, saving and controls |
+| `src/state.js`, `src/progression.js` | Stats, balance, migration, XP, leagues, missions and rewards |
+| `src/training.js`, `src/minigames.js` | Skill sessions and original bank games |
+| `src/world.js`, `src/park.js` | City, interiors, park, animated equipment and collisions |
+| `src/character.js` | Procedural rig, poses, muscle growth and clothing colours |
+| `src/navigation.js`, `src/ui.js` | Cached map, HUD, dialogs and notifications |
+| `src/optimization.js`, `src/textures.js` | Static geometry batching and procedural surfaces |
+| `src/audio.js`, `src/spotify.js`, `src/tv.js` | Procedural music/effects and optional online players |
+
+## Publishing
+
+The existing [GitHub Pages workflow](../.github/workflows/pages.yml) rebuilds and publishes pushes to `main` that change `web3d/`. The output remains `index.html`, `style.css` and the self-contained `game.js`; no application server or external asset service is required.
 
 ## Credits
 
-- Character model: ["Male Body"](https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1) by [Alexander Antipov](https://sketchfab.com/Dessen), licensed under [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Modified (rigged, muscle growth, painted clothes).
+Character model: [“Male Body”](https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1) by [Alexander Antipov](https://sketchfab.com/Dessen), [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Modified with welded vertices, a procedural skeleton, skin weights, muscle growth, clothing colours and animations. Scenery, textures, interface and procedural audio are generated in the browser.

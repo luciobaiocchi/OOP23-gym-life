@@ -173,6 +173,7 @@ function grownPositions(l, c, b) {
   g.setIndex(geo.index);
   g.computeVertexNormals();
   const res = { position: attr, normal: g.attributes.normal };
+  if (posCache.size >= 80) posCache.delete(posCache.keys().next().value);
   posCache.set(key, res);
   return res;
 }
@@ -313,8 +314,25 @@ export class Character {
       this.body.add(this.mesh);
       this.inBind(() => { this.mesh.updateMatrixWorld(true); this.mesh.bind(new THREE.Skeleton(this.bones)); });
     } else {
+      const old = this.mesh.geometry;
       this.mesh.geometry = geo;
+      old.dispose();
     }
+  }
+
+  setOutfit(color) {
+    if (this.outfitColor === color) return;
+    this.outfitColor = color;
+    const B = buildBase(), tmp = new THREE.Color(), C = this.colors;
+    C.shorts.setHex(color);
+    for (let v = 0; v < B.n; v++) {
+      tmp.copy(C.skin);
+      if (B.hair[v] > 0) tmp.lerp(C.hair, B.hair[v]);
+      if (!this.shirtless && B.shirt[v] > 0) tmp.lerp(C.shirt, B.shirt[v]);
+      tmp.lerp(C.shorts, B.shorts[v]).lerp(C.sock, B.sock[v]).lerp(C.shoe, B.shoe[v]).lerp(C.sole, B.sole[v]);
+      this.colorAttr.setXYZ(v, tmp.r, tmp.g, tmp.b);
+    }
+    this.colorAttr.needsUpdate = true;
   }
 
   resetJoints() {
@@ -354,7 +372,12 @@ export class Character {
           AL.elbow.rotation.x = -0.4;
           AR.elbow.rotation.x = -0.4;
           this.body.position.y = Math.abs(Math.cos(this.walkPhase)) * 0.05;
-          this.spine.rotation.x = 0.05;
+          const run = Math.max(0, Math.min(1, (speed - 4) / 4));
+          this.spine.rotation.x = 0.05 + run * 0.20;
+          this.body.rotation.z = Math.sin(this.walkPhase) * 0.035 * run;
+          AL.elbow.rotation.x -= run * 0.7;
+          AR.elbow.rotation.x -= run * 0.7;
+          this.neck.rotation.x = -run * 0.12;
         } else {
           const br = Math.sin(this.time * 2) * 0.02;
           this.spine.rotation.x = br;
@@ -363,6 +386,55 @@ export class Character {
           AL.elbow.rotation.x = -0.15;
           AR.elbow.rotation.x = -0.15;
         }
+        break;
+      }
+      case 'jump': {
+        L.hip.rotation.x = -0.45;
+        R.hip.rotation.x = -0.65;
+        L.knee.rotation.x = R.knee.rotation.x = 0.85;
+        AL.shoulder.rotation.x = AR.shoulder.rotation.x = -0.5;
+        AL.elbow.rotation.x = AR.elbow.rotation.x = -1.0;
+        this.spine.rotation.x = 0.1;
+        break;
+      }
+      case 'shoot': {
+        const bend = p < 0.5 ? p * 0.4 : (1 - p) * 0.4;
+        L.hip.rotation.x = R.hip.rotation.x = -bend;
+        L.knee.rotation.x = R.knee.rotation.x = bend * 2;
+        this.body.position.y = -bend * 0.2 + Math.max(0, p - 0.6) * 0.4;
+        AL.shoulder.rotation.x = AR.shoulder.rotation.x = -1.2 - p * 1.5;
+        AL.elbow.rotation.x = AR.elbow.rotation.x = -1.1 * (1 - p);
+        break;
+      }
+      case 'guard':
+      case 'jab':
+      case 'cross':
+      case 'duck': {
+        L.hip.rotation.x = -0.12; R.hip.rotation.x = 0.18;
+        L.knee.rotation.x = R.knee.rotation.x = 0.2;
+        AL.shoulder.rotation.x = AR.shoulder.rotation.x = -0.7;
+        AL.elbow.rotation.x = AR.elbow.rotation.x = -1.8;
+        AL.shoulder.rotation.z = -0.2; AR.shoulder.rotation.z = 0.2;
+        this.body.position.y = Math.sin(this.time * 9) * 0.015;
+        if (this.pose === 'duck') {
+          this.body.position.y -= p * 0.45;
+          this.spine.rotation.x = p * 0.5;
+          L.knee.rotation.x = R.knee.rotation.x = p * 0.8;
+        } else if (this.pose !== 'guard') {
+          const arm = this.pose === 'jab' ? AL : AR;
+          arm.shoulder.rotation.x -= p * 0.85;
+          arm.elbow.rotation.x *= 1 - p;
+          this.spine.rotation.y = p * (this.pose === 'jab' ? 0.35 : -0.45);
+          this.body.position.z += p * 0.16;
+        }
+        break;
+      }
+      case 'sit': {
+        this.body.position.y = -0.4;
+        L.hip.rotation.x = R.hip.rotation.x = -1.45;
+        L.knee.rotation.x = R.knee.rotation.x = 1.5;
+        AL.shoulder.rotation.x = AR.shoulder.rotation.x = -0.4;
+        AL.elbow.rotation.x = AR.elbow.rotation.x = -0.6;
         break;
       }
       case 'flex': {
@@ -386,10 +458,11 @@ export class Character {
         this.spine.rotation.x = 0.7 * p;
         this.neck.rotation.x = -0.5 * p;
         // hands on the bar behind the neck
-        AL.shoulder.rotation.z = -1.9;
-        AR.shoulder.rotation.z = 1.9;
-        AL.elbow.rotation.z = -1.9;
-        AR.elbow.rotation.z = 1.9;
+        AL.shoulder.rotation.z = -1.4;
+        AR.shoulder.rotation.z = 1.4;
+        AL.shoulder.rotation.x = AR.shoulder.rotation.x = 0.15;
+        AL.elbow.rotation.z = -0.5;
+        AR.elbow.rotation.z = 0.5;
         break;
       }
       case 'bench': {

@@ -3,11 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Gym Life 3D</title>
+<title>Gym Life 3D · Street to Legend</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='40' width='84' height='20' rx='4' fill='%23222'/><rect x='14' y='22' width='14' height='56' rx='3' fill='%23f2b705'/><rect x='72' y='22' width='14' height='56' rx='3' fill='%23f2b705'/></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,6 +13,7 @@
 <!-- HUD -->
 <div id="hud" class="hidden">
   <div class="card stats">
+    <div class="hud-brand">GYM LIFE <span>STREET TO LEGEND</span></div>
     <div class="row top"><span id="h-day">Day 1</span><span id="h-money">$0</span></div>
     <div class="bar"><label>Energy</label><div><i id="b-stamina"></i></div><b id="v-stamina"></b></div>
     <div class="bar"><label>Mood</label><div><i id="b-happiness"></i></div><b id="v-happiness"></b></div>
@@ -24,8 +22,15 @@
     <div class="bar m"><label>Chest</label><div><i id="b-chest"></i></div><b id="v-chest"></b></div>
     <div class="bar m"><label>Back</label><div><i id="b-back"></i></div><b id="v-back"></b></div>
   </div>
+  <button id="objective" class="card"><span class="eyebrow">NEXT CHALLENGE <span id="objective-count"></span></span><strong id="objective-title"></strong><span id="objective-desc"></span><small>Career & map [J] ↗</small></button>
+  <div id="career-hud" class="card"><b id="h-level"></b><span id="h-xp"></span><div class="xp-track"><i id="b-xp"></i></div></div>
+  <button id="map-card" class="card" title="Open career and destinations (J)"><span id="map-location">OAKSIDE</span><canvas id="minimap" width="320" height="320" aria-label="Local map with your position and activities"></canvas><small id="map-waypoint">Follow your own pace</small></button>
+  <div id="breath"><span>SPRINT</span><div><i id="b-breath"></i></div></div>
+  <div id="race-hud" class="card hidden"><span class="eyebrow">RIVERSIDE CIRCUIT</span><b id="race-time"></b><span id="race-progress"></span></div>
   <div id="inventory" class="card"></div>
   <div class="topright">
+    <button id="btn-journal" title="Career and destinations (J)"></button>
+    <button id="btn-pause" title="Pause (Esc)"></button>
     <button id="btn-radio" class="hidden" title="Switch gym radio station (R)"></button>
     <button id="btn-mute" title="Music on/off (M)"></button>
     <button id="btn-quality" title="Graphics quality (G)"></button>
@@ -38,11 +43,14 @@
 <div id="toasts"></div>
 <div id="panel" class="hidden"></div>
 <div id="fade"></div>
+<div id="pause" class="hidden"><div class="box"><div class="eyebrow">TAKE A BREATH</div><h2>Game paused</h2><p>Your session will wait for you.</p><div class="btns"><button class="btn primary" id="pause-resume">Resume</button><button class="btn" id="pause-stop">Stop session</button><button class="btn" id="pause-menu">Save & main menu</button></div><p class="scores">Esc to resume · Progress saves automatically</p></div></div>
 
 <!-- Touch controls -->
 <div id="touch" class="hidden">
   <div id="stick"><div id="knob"></div></div>
-  <button id="btn-action">E</button>
+  <button id="btn-action" aria-label="Interact">E</button>
+  <button id="btn-run" aria-label="Hold to sprint">RUN</button>
+  <button id="btn-jump" aria-label="Jump">↑</button>
 </div>
 
 <noscript><p style="padding:2em">Enable JavaScript to play.</p></noscript>
