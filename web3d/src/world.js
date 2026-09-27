@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Character } from './character.js';
 import { tex } from './textures.js';
+import { batchStatic } from './optimization.js';
+import { SECRETS } from './progression.js';
 
 // 3D maps: the city plus the interiors of home, gym, supermarket and bank.
 
@@ -88,7 +90,7 @@ export function cyl(rt, rb, h, material, x = 0, y = 0, z = 0, parent = null, seg
   return m;
 }
 
-function sphere(r, material, x, y, z, parent, seg = 16) {
+export function sphere(r, material, x, y, z, parent, seg = 16) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(8, seg - 4)), typeof material === 'number' ? mat(material) : material);
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -97,7 +99,7 @@ function sphere(r, material, x, y, z, parent, seg = 16) {
   return m;
 }
 
-function plane(w, d, material, x, y, z, parent, rep = 0) {
+export function plane(w, d, material, x, y, z, parent, rep = 0) {
   const geo = new THREE.PlaneGeometry(w, d);
   if (rep) {
     const uv = geo.attributes.uv;
@@ -135,6 +137,7 @@ export function textSign(text, w, h, bg = '#222', fg = '#fff', font = 'bold 72px
 // Discreet marker on the floor for interactive spots
 function marker() {
   const g = new THREE.Group();
+  g.userData.dynamic = true;
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.58, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2;
   ring.name = 'ring';
@@ -143,7 +146,7 @@ function marker() {
 }
 
 // ---------------------------------------------------------------- PLACE
-class Place {
+export class Place {
   constructor(name, music) {
     this.name = name;
     this.music = music;
@@ -168,12 +171,14 @@ class Place {
     const m = marker();
     m.position.set(x, 0.03, z);
     this.scene.add(m);
-    this.interactions.push({ x, z, label, action, data, radius, marker: m });
+    const interaction = { x, z, label, action, data, radius, marker: m, ring: m.getObjectByName('ring') };
+    this.interactions.push(interaction);
+    return interaction;
   }
 
   update(dt, t) {
     this.interactions.forEach((it, i) => {
-      const ring = it.marker.getObjectByName('ring');
+      const ring = it.ring;
       ring.material.opacity = 0.22 + (Math.sin(t * 2.5 + i) + 1) * 0.1;
     });
     this.updaters.forEach((u) => u(dt, t));
@@ -184,8 +189,11 @@ class Place {
     const b = this.bounds;
     pos.x = Math.max(b.x1 + r, Math.min(b.x2 - r, pos.x));
     pos.z = Math.max(b.z1 + r, Math.min(b.z2 - r, pos.z));
-    const rects = this.colliders.slice();
-    const circles = this.circles.slice();
+    const rects = this._rectScratch ||= [];
+    const circles = this._circleScratch ||= [];
+    rects.length = circles.length = 0;
+    rects.push(...this.colliders);
+    circles.push(...this.circles);
     for (const f of this.dynamic) {
       for (const o of f()) {
         if (o === skip || o.owner === skip) continue;
@@ -586,6 +594,7 @@ export function buildCity() {
     cyl(0.35, 0.5, 1.6, M.stone(), fx, 1.1, fz, s, 20);
     cyl(1, 0.2, 0.3, M.stone(), fx, 2, fz, s, 24);
     const jet = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.3, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0xdff3ff, transparent: true, opacity: 0.45, roughness: 0.1 }));
+    jet.userData.dynamic = true;
     jet.position.set(fx, 2.8, fz);
     jet.rotation.x = Math.PI;
     s.add(jet);
@@ -600,9 +609,16 @@ export function buildCity() {
     });
   }
 
+  p.interact(30, 25, 'Riverside Sports Park · basketball, boxing, running', 'enter', 'park', 2.4);
+  const parkSign = textSign('RIVERSIDE  /  SPORTS PARK →', 7.5, 0.8, '#123b36', '#c8ff8c', 'bold 58px sans-serif', true);
+  parkSign.position.set(30, 2.5, 26);
+  s.add(parkSign);
+  [-3.4, 3.4].forEach(x => box(0.1, 2.7, 0.1, M.metal(), 30 + x, 1.35, 26, s));
+  p.interact(23, 36, 'Park bench · take a breather', 'rest', null, 1.7);
+
   // Trees and bushes (away from roads, buildings and park)
   const occupied = (x, z, m = 3) =>
-    Math.abs(x) < 9 || Math.abs(z) < 9 ||
+    Math.abs(x) < 9 || Math.abs(z) < 9 || SECRETS.some(s => Math.hypot(s.x - x, s.z - z) < 2.2) ||
     p.colliders.some((c) => x > c.x1 - m && x < c.x2 + m && z > c.z1 - m && z < c.z2 + m) ||
     Math.hypot(x - 30, z - 36) < 11 || Math.hypot(x + 19, z + 10) < 3;
   let placed = 0;
@@ -668,6 +684,22 @@ export function buildCity() {
     streetLamp(s, 6.25, i, -Math.PI / 2);
     streetLamp(s, -6.25, i, Math.PI / 2);
     p.circles.push({ x: i, z: 6.25, r: 0.12 }, { x: i, z: -6.25, r: 0.12 }, { x: 6.25, z: i, r: 0.12 }, { x: -6.25, z: i, r: 0.12 });
+  }
+
+  p.batching = batchStatic(s);
+  // Collectibles stay independent from the scenery and disappear permanently on pickup.
+  p.secrets = [];
+  for (const secret of SECRETS) {
+    const prop = new THREE.Group();
+    const gold = mat(0xffd36a, { metalness: 0.7, roughness: 0.25, emissive: 0xe9a924, emissiveIntensity: 0.25 });
+    const bar = cyl(0.04, 0.04, 0.7, gold, 0, 0, 0, prop, 10);
+    bar.rotation.z = Math.PI / 2;
+    [-0.3, 0.3].forEach(x => { const plate = cyl(0.2, 0.2, 0.12, gold, x, 0, 0, prop, 14); plate.rotation.z = Math.PI / 2; });
+    prop.position.set(secret.x, 1, secret.z);
+    s.add(prop);
+    const interaction = p.interact(secret.x, secret.z, 'Pick up mysterious golden dumbbell', 'secret', secret.id, 1.7);
+    p.secrets.push({ id: secret.id, prop, interaction });
+    p.updaters.push((dt, t) => { if (prop.visible) { prop.rotation.y += dt; prop.position.y = 1 + Math.sin(t * 2) * 0.15; } });
   }
 
   // ---- TRAFFIC: lights, cars and pedestrians
@@ -1056,9 +1088,11 @@ export function buildGym() {
     const cable = box(0.015, 1, 0.015, M.chrome(), 0, 2.5, 0.6, g, false);
     const handle = cyl(0.02, 0.02, 1.5, M.chrome(), 0, 2, 0.6, g, 8);
     handle.rotation.z = Math.PI / 2;
-    for (let i = 0; i < 8; i++) box(0.45, 0.07, 0.25, mat(0x2a2a2d, { roughness: 0.4, metalness: 0.6 }), 0, 0.1 + i * 0.075, -0.55, g);
+    const weights = new THREE.Group();
+    g.add(weights);
+    for (let i = 0; i < 8; i++) box(0.45, 0.07, 0.25, mat(0x2a2a2d, { roughness: 0.4, metalness: 0.6 }), 0, 0.1 + i * 0.075, -0.55, weights);
     p.solid(5.5, -3.8, 1, 2);
-    p.lat = { group: g, cable, handle };
+    p.lat = { group: g, cable, handle, weights };
     const lab = labelMat('LAT PULLDOWN');
     lab.position.set(0, 3.25, 0.1);
     g.add(lab);
@@ -1085,6 +1119,7 @@ export function buildGym() {
   box(0.4, 1.1, 0.4, mat(0xdcdcdc, { roughness: 0.3 }), -8.3, 0.55, 0, s);
   cyl(0.15, 0.15, 0.4, mat(0x6fb3e0, { transparent: true, opacity: 0.7, roughness: 0.05 }), -8.3, 1.3, 0, s, 16);
   p.circles.push({ x: -8.3, z: 0, r: 0.35 });
+  p.interact(-7.5, 0, 'Water cooler · recover 12 energy', 'water', null, 1.4);
   // the gym bro
   const bro = new Character({ shirtless: true, shorts: 0x7a1f1f, skin: 0x8d5524, hair: 0x0c0c0c, muscles: [90, 95, 90] });
   bro.root.position.set(-6, 0, 3.5);

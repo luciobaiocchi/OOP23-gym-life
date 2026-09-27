@@ -5,14 +5,17 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { GameState, FOODS, DIFFICULTIES, WORKOUT_STAMINA } from './state.js';
+import { GameState, FOODS, DIFFICULTIES } from './state.js';
 import { Audio, GYM_STATIONS } from './audio.js';
 import { Character } from './character.js';
 import { buildCity, buildHome, buildGym, buildShop, buildBank } from './world.js';
 import { UI, effectsHtml, ICONS } from './ui.js';
 import { SpotifyStation } from './spotify.js';
 import { TV_VIDEOS, embedUrl, thumbUrl } from './tv.js';
-import { squatGame, benchGame, latGame, workGame, planeGame } from './minigames.js';
+import { squatGame, benchGame, latGame, workGame, planeGame, basketballGame, boxingGame } from './minigames.js';
+import { buildPark, RUN_ROUTE, SHOT_SPOTS } from './park.js';
+import { LEAGUES, QUESTS, SECRETS, questProgress, rankFor } from './progression.js';
+import { Minimap, DESTINATIONS, PLACE_NAMES } from './navigation.js';
 
 const WORK_STAMINA = 20;
 const SAVE_KEY = 'gymlife3d.save';
@@ -43,7 +46,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in win
 if (isTouch) document.body.classList.add('touch');
 const QUALITIES = ['low', 'medium', 'high'];
 let quality = store.get(QUALITY_KEY);
-if (!QUALITIES.includes(quality)) quality = isTouch ? 'low' : 'high';
+if (!QUALITIES.includes(quality)) quality = isTouch ? 'low' : 'medium';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -54,17 +57,22 @@ document.getElementById('app').appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1200);
 
-// Post-processing (high quality only): ambient occlusion, multisampled
-const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
-const renderPass = new RenderPass(new THREE.Scene(), camera);
-const gtaoPass = new GTAOPass(new THREE.Scene(), camera, 1, 1);
-gtaoPass.blendIntensity = 0.85;
-gtaoPass.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 1.5, scale: 1.2, samples: 12 });
-composer.addPass(renderPass);
-composer.addPass(gtaoPass);
-composer.addPass(new OutputPass());
+// Allocate expensive postprocessing targets only if high quality is actually used.
+let composer = null, renderPass = null, gtaoPass = null;
+function ensurePostprocessing() {
+  if (composer) return;
+  composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 2 }));
+  renderPass = new RenderPass(place.scene, camera);
+  gtaoPass = new GTAOPass(place.scene, camera, 1, 1);
+  gtaoPass.blendIntensity = 0.75;
+  gtaoPass.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 1.5, scale: 1.2, samples: 8 });
+  composer.addPass(renderPass);
+  composer.addPass(gtaoPass);
+  composer.addPass(new OutputPass());
+}
 
 function applyQuality() {
+  if (quality === 'high') ensurePostprocessing();
   const dpr = window.devicePixelRatio || 1;
   renderer.setPixelRatio(quality === 'high' ? Math.min(dpr, 2) : quality === 'medium' ? Math.min(dpr, 1.5) : Math.min(dpr, 1) * 0.85);
   renderer.shadowMap.enabled = quality !== 'low';
@@ -76,8 +84,7 @@ function applyQuality() {
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h);
-  composer.setPixelRatio(renderer.getPixelRatio());
-  composer.setSize(w, h);
+  if (composer && quality === 'high') { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -86,8 +93,9 @@ window.addEventListener('resize', resize);
 // ---------------------------------------------------------------- GLOBAL STATE
 const audio = new Audio();
 const ui = new UI(audio);
-const places = { city: buildCity(), home: null, gym: null, shop: null, bank: null };
-const builders = { home: buildHome, gym: buildGym, shop: buildShop, bank: buildBank };
+ui.onPause = pauseGame;
+const places = { city: buildCity(), home: null, gym: null, shop: null, bank: null, park: null };
+const builders = { home: buildHome, gym: buildGym, shop: buildShop, bank: buildBank, park: buildPark };
 const pmrem = new THREE.PMREMGenerator(renderer);
 
 // Physical sky for the city, also used as environment lighting/reflections
@@ -114,7 +122,8 @@ const roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 function setupPlace(p) {
   p.playerPos = pos;
-  if (p !== places.city) {
+  if (p.name === 'park') { p.scene.environment = places.city.scene.environment; p.scene.environmentIntensity = 0.3; }
+  else if (p !== places.city) {
     p.scene.environment = roomEnv;
     p.scene.environmentIntensity = 0.35;
   }
@@ -126,9 +135,14 @@ let state = null;
 let place = places.city;
 let mode = 'title'; // title | play | busy | minigame | end
 let minigame = null;
-let tvDay = -1;
-let broDay = -1;
-let station = Math.max(0, GYM_STATIONS.findIndex((st) => st.id === store.get(RADIO_KEY)));
+let paused = false, sessionCancel = null, race = null, saveTimer = 0;
+let waypoint = 'gym';
+let breath = 100, breathDelay = 0, winded = false, jumpVelocity = 0, jumpHeight = 0, touchSprint = false;
+const minimap = new Minimap(document.getElementById('minimap'));
+const OUTFITS = [0x1b1d22, 0x316b64, 0xad5948, 0xd2b65d];
+
+const storedStation = GYM_STATIONS.findIndex(st => st.id === store.get(RADIO_KEY));
+let station = storedStation >= 0 ? storedStation : 1;
 
 // The gym plays the selected radio station, other places their own music
 const spotify = new SpotifyStation();
@@ -158,28 +172,45 @@ const keys = new Set();
 const touchMove = { x: 0, y: 0 };
 
 window.addEventListener('keydown', (e) => {
-  audio.init();
-  if (e.repeat && mode !== 'play') return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
   const k = e.key;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) e.preventDefault();
-  if (mode === 'minigame' && minigame) { minigame.key(k); return; }
-  if (ui.isOpen()) { ui.handleKey(k); return; }
+  audio.init();
+  if (k === 'Escape' && !e.repeat) {
+    if (paused) resumeGame();
+    else if (mode === 'play' || mode === 'minigame') pauseGame();
+    else if (ui.isOpen()) ui.handleKey(k);
+    return;
+  }
+  if (paused) return;
+  if (mode === 'minigame' && minigame) { if (!e.repeat) minigame.key(k); return; }
+  if (ui.isOpen()) { if (!e.repeat) ui.handleKey(k); return; }
   keys.add(k.toLowerCase());
-  if (mode !== 'play') return;
-  if (k === 'e' || k === 'E' || k === 'Enter' || k === ' ') interact();
-  else if (k === 'm' || k === 'M') toggleMute();
-  else if (k === 'r' || k === 'R') nextStation();
-  else if (k === 'g' || k === 'G') toggleQuality();
-  else if (k === 'h' || k === 'H') showHelp();
-  else if (k === '1' || k === '2' || k === '3') eat(Object.keys(FOODS)[Number(k) - 1]);
+  if (mode !== 'play' || e.repeat) return;
+  if (k.toLowerCase() === 'e' || k === 'Enter') interact();
+  else if (k === ' ') jump();
+  else if (k.toLowerCase() === 'j') showJournal();
+  else if (k.toLowerCase() === 'm') toggleMute();
+  else if (k.toLowerCase() === 'r') nextStation();
+  else if (k.toLowerCase() === 'g') toggleQuality();
+  else if (k.toLowerCase() === 'h') showHelp();
+  else if (['1', '2', '3'].includes(k)) eat(Object.keys(FOODS)[Number(k) - 1]);
 });
-window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
-window.addEventListener('blur', () => keys.clear());
+window.addEventListener('keyup', e => {
+  keys.delete(e.key.toLowerCase());
+  if (!paused) minigame?.release?.(e.key);
+});
+window.addEventListener('blur', () => { keys.clear(); touchMove.x = touchMove.y = 0; touchSprint = false; drag = null; if (mode === 'play' || mode === 'minigame') pauseGame(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { pauseGame(); saveGame(); audio.ctx?.suspend(); }
+  lastTime = performance.now();
+});
+window.addEventListener('pagehide', saveGame);
 window.addEventListener('pointerdown', () => audio.init());
 
 // Rotate the camera by dragging the mouse / finger on the background
 let drag = null;
-renderer.domElement.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+renderer.domElement.addEventListener('pointerdown', (e) => { if (paused || mode !== 'play') return; drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
 window.addEventListener('pointermove', (e) => {
   if (!drag || drag.id !== e.pointerId) return;
   cam.yaw -= (e.clientX - drag.x) * 0.006;
@@ -188,6 +219,7 @@ window.addEventListener('pointermove', (e) => {
   drag.y = e.clientY;
 });
 window.addEventListener('pointerup', (e) => { if (drag && drag.id === e.pointerId) drag = null; });
+window.addEventListener('pointercancel', () => { drag = null; });
 renderer.domElement.addEventListener('wheel', (e) => {
   cam.zoom = Math.max(0.55, Math.min(1.7, cam.zoom + Math.sign(e.deltaY) * 0.08));
 }, { passive: true });
@@ -212,9 +244,21 @@ if (isTouch) {
   const release = () => { sid = null; touchMove.x = touchMove.y = 0; knob.style.transform = ''; };
   stick.addEventListener('pointerup', release);
   stick.addEventListener('pointercancel', release);
-  document.getElementById('btn-action').addEventListener('click', () => { audio.init(); if (mode === 'play') interact(); });
+  document.getElementById('btn-action').addEventListener('click', () => { audio.init(); if (mode === 'play' && !paused) interact(); });
 }
 
+document.getElementById('btn-journal').innerHTML = ICONS.journal;
+document.getElementById('btn-pause').innerHTML = ICONS.pause;
+document.getElementById('btn-journal').onclick = () => { if (mode === 'play' && !paused) showJournal(); };
+document.getElementById('btn-pause').onclick = pauseGame;
+document.getElementById('objective').onclick = () => { if (mode === 'play' && !paused) showJournal(); };
+document.getElementById('map-card').onclick = () => { if (mode === 'play' && !paused) showJournal(); };
+document.getElementById('pause-resume').onclick = resumeGame;
+document.getElementById('pause-stop').onclick = () => { resumeGame(); cancelSession(); };
+document.getElementById('pause-menu').onclick = () => { resumeGame(); if (sessionCancel || race || minigame) cancelSession(); saveGame(); showTitle(); };
+document.getElementById('btn-run').onpointerdown = e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); touchSprint = true; };
+document.getElementById('btn-run').onpointerup = document.getElementById('btn-run').onpointercancel = () => { touchSprint = false; };
+document.getElementById('btn-jump').onclick = jump;
 document.getElementById('btn-mute').innerHTML = ICONS.sound;
 document.getElementById('btn-help').innerHTML = ICONS.help;
 document.getElementById('btn-mute').onclick = toggleMute;
@@ -243,8 +287,13 @@ function setPlace(id, spawn) {
   place = id === 'city' ? places.city : getPlace(id);
   place.scene.add(player.root);
   const sp = spawn || place.spawn;
+  speed = jumpVelocity = jumpHeight = 0;
+  keys.clear();
+  touchMove.x = touchMove.y = 0;
   pos.set(sp.x, 0, sp.z);
-  heading = sp.rot;
+  heading = sp.rot || 0;
+  document.getElementById('map-location').textContent = PLACE_NAMES[id];
+  syncSecrets();
   cam.yaw = heading + Math.PI;
   cam.pitch = 0.5;
   cam.snap = true;
@@ -274,17 +323,20 @@ function nextStation() {
 
 async function travel(id, spawn) {
   mode = 'busy';
+  keys.clear();
   ui.prompt(null);
   audio.sfx('door');
   await ui.fade('', 450);
   setPlace(id, spawn);
   mode = 'play';
+  saveGame();
 }
 
 // ---------------------------------------------------------------- INTERACTIONS
 function nearest() {
   let best = null, bd = Infinity;
   for (const it of place.interactions) {
+    if (it.disabled) continue;
     const d = Math.hypot(pos.x - it.x, pos.z - it.z);
     if (d < it.radius && d < bd) { bd = d; best = it; }
   }
@@ -292,6 +344,8 @@ function nearest() {
 }
 
 function interact() {
+  if (race) { ui.toast('Finish the circuit first, or stop it from Pause.'); return; }
+  if (jumpHeight > 0.1 || paused) return;
   const it = nearest();
   if (!it) return;
   keys.clear();
@@ -307,22 +361,27 @@ function interact() {
     case 'work': startWork(); break;
     case 'plane': planeDialog(); break;
     case 'bro': talkToBro(); break;
+    case 'sport': sportDialog(it.data); break;
+    case 'water': recover('water'); break;
+    case 'rest': recover('rest'); break;
+    case 'journal': showJournal(); break;
+    case 'secret': collectSecret(it.data); break;
     default: break;
   }
 }
 
-const DOORS = { home: [-19, -10.6], gym: [19, -10.6], shop: [-19, 10.6], bank: [19, 10.6] };
+const DOORS = { home: [-19, -10.6], gym: [19, -10.6], shop: [-19, 10.6], bank: [19, 10.6], park: [30, 24] };
 
 async function exitBuilding() {
   const from = place.name;
   const [x, z] = DOORS[from];
   await travel('city', { x, z, rot: z < 0 ? 0 : Math.PI });
   cam.yaw = heading; // camera on the road side, looking at the building
-  if (Math.random() < 0.45) setTimeout(encounter, 350);
+  if (from !== 'park' && Math.random() < 0.2) setTimeout(encounter, 350);
 }
 
 function encounter() {
-  if (mode !== 'play') return;
+  if (mode !== 'play' || paused || race) return;
   const e = state.randomEncounter();
   mode = 'busy';
   audio.sfx('event');
@@ -344,7 +403,7 @@ async function sleep() {
   audio.sfx('sleep');
   state.sleep();
   const day = state.totalDays - state.days + 1;
-  if (state.days > 0) store.set(SAVE_KEY, serialize());
+  breath = 100;
   player.setPose('sleep');
   const bed = place.bedPos;
   pos.set(bed.x, 0, bed.z - 0.9);
@@ -353,6 +412,7 @@ async function sleep() {
   player.setPose('idle');
   pos.set(-3, 0, -1.2);
   mode = 'play';
+  saveGame();
   if (!checkEnd()) ui.toast(`Good morning! Energy fully restored. Days left: ${state.days}`, 'good');
 }
 
@@ -368,6 +428,7 @@ function fridge() {
 }
 
 function eat(id) {
+  if (paused || mode !== 'play') return;
   if (!state.eat(id)) {
     ui.toast(`You have no ${FOODS[id].name.toLowerCase()} left. Buy some at the supermarket.`, 'bad');
     audio.sfx('bad');
@@ -390,13 +451,11 @@ const BRO_TIPS = [
 ];
 
 function talkToBro() {
-  const day = state.totalDays - state.days;
   mode = 'busy';
   audio.shout('bro');
-  const first = broDay !== day;
-  if (first) { broDay = day; state.apply({ happiness: 5 }); }
+  const first = state.recover('bro');
   ui.dialog(`<h2>Gym bro</h2><p>${BRO_TIPS[Math.floor(Math.random() * BRO_TIPS.length)]}</p>
-    ${first ? effectsHtml({ happiness: 5 }) : ''}`, [
+    ${first ? effectsHtml(first) : ''}`, [
     { label: 'We\'re gonna make it', cls: 'primary', cb: () => { mode = 'play'; } },
   ]);
 }
@@ -414,10 +473,8 @@ function watchTv() {
 
 // first TV of the day gives mood
 function tvMood() {
-  const day = state.totalDays - state.days;
-  if (tvDay === day) return;
-  tvDay = day;
-  state.apply({ happiness: 10 });
+  const reward = state.recover('tv');
+  if (!reward) return;
   audio.sfx('good');
   ui.toast('Motivation boost: +10 mood', 'good');
 }
@@ -443,7 +500,8 @@ function mirror() {
   ui.dialog(`<h2>Looking good</h2><p>Total mass: <b>${m}</b> / 300</p>
     <p>Legs ${Math.round(state.legs)} · Chest ${Math.round(state.chest)} · Back ${Math.round(state.back)}</p>
     <p>Get every muscle group to 100 to win.</p>`, [
-    { label: 'Ok', cls: 'primary', cb: () => { player.setPose('idle'); mode = 'play'; } },
+    ...['Midnight', 'Riverside', 'Sunset', 'Champion gold'].map((name, i) => ({ label: name + (state.level < i * 2 + 1 ? `<small>Level ${i * 2 + 1}</small>` : ''), disabled: state.level < i * 2 + 1, cb: () => { state.career.outfit = i; state.emit(); player.setPose('idle'); mode = 'play'; } })),
+    { label: 'Done', key: 'Escape', cls: 'primary', cb: () => { player.setPose('idle'); mode = 'play'; } },
   ], { clear: true });
 }
 
@@ -476,13 +534,13 @@ const EXERCISES = {
 function workoutDialog(ex) {
   if (!state.canWorkout()) {
     audio.sfx('bad');
-    ui.toast(`Too tired. You need ${WORKOUT_STAMINA} energy: eat something or sleep.`, 'bad');
+    ui.toast(`Too tired. You need more than ${state.workoutCost} energy: eat something or sleep.`, 'bad');
     return;
   }
   mode = 'busy';
   const e = EXERCISES[ex];
   ui.dialog(`<h2>${e.name}</h2><p>Pick the load. Heavier is harder, but the gains are bigger.</p>
-    <p style="color:var(--muted)">Cost: ${WORKOUT_STAMINA} energy</p>`, [
+    <p style="color:var(--muted)">Cost: ${state.workoutCost} energy · Personal best: ${Math.round((state.career.best[ex] || 0) * 100)}%</p>`, [
     { label: 'Light<small>x0.7 gains</small>', cb: () => startWorkout(ex, 0) },
     { label: 'Medium<small>x1 gains</small>', cls: 'primary', cb: () => startWorkout(ex, 1) },
     { label: 'Heavy<small>x1.4 gains</small>', cls: 'bad', cb: () => startWorkout(ex, 2) },
@@ -493,18 +551,26 @@ function workoutDialog(ex) {
 const saved = { pos: new THREE.Vector3(), heading: 0 };
 
 function beginMinigame(setup, camPos, camLook, music) {
+  keys.clear();
+  speed = 0;
   saved.pos.copy(pos);
   saved.heading = heading;
   setup();
   cam.fixed = { pos: camPos, look: camLook };
   place.interactions.forEach((it) => { it.marker.visible = false; });
   mode = 'minigame';
+  document.body.classList.add('in-session');
   ui.prompt(null);
   if (music) audio.play(music);
 }
 
 function endMinigame() {
+  minigame?.dispose?.();
   minigame = null;
+  sessionCancel = null;
+  document.body.classList.remove('in-session');
+  keys.clear();
+  speed = 0;
   cam.fixed = null;
   place.interactions.forEach((it) => { it.marker.visible = true; });
   pos.copy(saved.pos);
@@ -515,6 +581,9 @@ function endMinigame() {
 }
 
 function startWorkout(ex, level) {
+  if (place.name !== 'gym' || !Object.hasOwn(EXERCISES, ex) || ![0, 1, 2].includes(level) || !state.canWorkout()) return;
+  const cost = state.workoutCost;
+  state.apply({ stamina: -cost });
   const gym = place;
   const e = EXERCISES[ex];
   const mult = [0.7, 1, 1.4][level];
@@ -528,7 +597,7 @@ function startWorkout(ex, level) {
       heading = 0;
       player.spine.add(barbell);
       barbell.position.set(0, 0.42, -0.12);
-      restore = () => { group.add(barbell); barbell.position.set(0, 1.5, 0); };
+      restore = () => { group.add(barbell); barbell.position.set(0, 1.5, 0.1); };
       camPos = V(group.position.x + 3.2, 2.2, group.position.z + 4.2);
       camLook = V(group.position.x, 1.0, group.position.z);
     } else if (ex === 'bench') {
@@ -547,17 +616,19 @@ function startWorkout(ex, level) {
       camPos = V(group.position.x + 3.4, 2.6, group.position.z + 2.6);
       camLook = V(group.position.x, 0.8, group.position.z);
     } else {
-      const { group, handle, cable } = gym.lat;
+      const { group, handle, cable, weights } = gym.lat;
       pos.set(group.position.x, 0, group.position.z + 0.35);
       heading = 0;
       gym.updaters.push(gym.latUpd = () => {
         const p = player.poseT;
         handle.position.y = 2.25 - p * 0.75;
+        weights.position.y = p * 0.45;
         cable.scale.y = 3 - handle.position.y;
         cable.position.y = (3 + handle.position.y) / 2;
       });
       restore = () => {
         gym.updaters.splice(gym.updaters.indexOf(gym.latUpd), 1);
+        weights.position.y = 0;
         handle.position.y = 2;
         cable.scale.y = 1;
         cable.position.y = 2.5;
@@ -570,6 +641,7 @@ function startWorkout(ex, level) {
   audio.sfx('airhorn');
   audio.shout('start');
   cam.fixed = { pos: camPos, look: camLook };
+  sessionCancel = () => { restore(); endMinigame(); };
   minigame = e.game({
     ui, audio, char: player,
     done: (score) => {
@@ -577,14 +649,16 @@ function startWorkout(ex, level) {
       endMinigame();
       const gain = Math.round((4 + score * 14) * mult);
       const before = Math.round(state[e.group]);
-      state.apply({ [e.group]: gain, stamina: -WORKOUT_STAMINA, happiness: score >= 0.5 ? 4 : -4 });
-      const delta = { [e.group]: Math.round(state[e.group]) - before, stamina: -WORKOUT_STAMINA, happiness: score >= 0.5 ? 4 : -4 };
+      state.apply({ [e.group]: gain, happiness: score >= 0.5 ? 5 : 1 });
+      const reward = state.completeActivity(ex, score, level);
+      announceReward(reward);
+      const delta = { [e.group]: Math.round(state[e.group]) - before, stamina: -cost, happiness: score >= 0.5 ? 5 : 1 };
       audio.sfx(score >= 0.5 ? 'levelup' : 'bad');
       if (score >= 0.8) { audio.sfx('airhorn'); audio.shout('great'); } else if (score < 0.5) audio.shout('bad');
       mode = 'busy';
       const pct = Math.round(score * 100);
       ui.dialog(`<h2>${e.name}: ${pct}%</h2>
-        <p>${pct >= 80 ? 'Monster session.' : pct >= 50 ? 'Solid workout.' : 'You can do better than that.'}</p>${effectsHtml(delta)}`, [
+        <p>${pct >= 80 ? 'Monster session.' : pct >= 50 ? 'Solid workout.' : 'Every rep is progress. Keep practising.'}</p>${effectsHtml(delta)}${rewardHtml(reward)}`, [
         { label: 'Continue', cls: 'primary', cb: () => { mode = 'play'; checkEnd(); } },
       ]);
     },
@@ -592,18 +666,20 @@ function startWorkout(ex, level) {
 }
 
 function startWork() {
-  if (state.stamina < WORK_STAMINA) {
+  if (state.stamina <= WORK_STAMINA) {
     audio.sfx('bad');
     ui.toast(`Too tired to work (you need ${WORK_STAMINA} energy).`, 'bad');
     return;
   }
+  state.apply({ stamina: -WORK_STAMINA });
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   beginMinigame(() => { pos.set(3.5, 0, -4.1); heading = 0; }, V(5.5, 2.4, -0.5), V(3.5, 1, -3.6), null);
+  sessionCancel = endMinigame;
   minigame = workGame({
     ui, audio, char: player,
     done: (earned) => {
       endMinigame();
-      state.apply({ money: earned, stamina: -WORK_STAMINA });
+      state.apply({ money: earned });
       audio.sfx('coin');
       mode = 'busy';
       ui.dialog(`<h2>Shift over</h2>${effectsHtml({ money: earned, stamina: -WORK_STAMINA })}`, [
@@ -629,10 +705,14 @@ function startPlane(bet) {
   state.apply({ money: -bet });
   mode = 'minigame';
   ui.prompt(null);
+  document.body.classList.add('in-session');
+  sessionCancel = () => { minigame = null; sessionCancel = null; document.body.classList.remove('in-session'); };
   minigame = planeGame({
     ui, audio, char: player,
     done: (win) => {
       minigame = null;
+      sessionCancel = null;
+      document.body.classList.remove('in-session');
       ui.close();
       state.apply({ money: win });
       mode = 'play';
@@ -640,6 +720,228 @@ function startPlane(bet) {
       checkEnd();
     },
   }, bet);
+}
+
+// ---------------------------------------------------------------- CAREER, RECOVERY & SPORTS
+function saveGame() {
+  if (!state || mode === 'title' || mode === 'end' || state.gameOverReason() || state.isWin()) return;
+  store.set(SAVE_KEY, serialize());
+}
+
+function pauseGame() {
+  if (paused || !['play', 'minigame'].includes(mode)) return;
+  paused = true;
+  keys.clear();
+  touchMove.x = touchMove.y = 0;
+  touchSprint = false;
+  minigame?.suspend?.();
+  document.getElementById('touch').classList.add('hidden');
+  document.getElementById('pause').classList.remove('hidden');
+  document.getElementById('pause-stop').classList.toggle('hidden', !sessionCancel && !race);
+  document.getElementById('pause-stop').textContent = 'Stop session (spent energy is not refunded)';
+  saveGame();
+}
+function resumeGame() {
+  paused = false;
+  keys.clear();
+  lastTime = performance.now();
+  document.getElementById('pause').classList.add('hidden');
+  audio.init();
+}
+function cancelSession() {
+  if (sessionCancel) sessionCancel();
+  if (race) { race = null; place.runGate.visible = false; document.getElementById('race-hud').classList.add('hidden'); }
+  minigame = null;
+  sessionCancel = null;
+  cam.fixed = null;
+  player.setPose('idle');
+  ui.close();
+  mode = 'play';
+  document.body.classList.remove('in-session');
+  ui.toast('Session stopped. No result recorded.');
+  saveGame();
+}
+function jump() {
+  if (mode !== 'play' || paused || jumpHeight > 0 || breath < 8 || (race && race.countdown > 0)) return;
+  breath -= 8;
+  jumpVelocity = 6.6;
+  breathDelay = 0.5;
+}
+function syncSecrets() {
+  for (const secret of places.city.secrets || []) {
+    const found = state?.career.secrets.includes(secret.id) || false;
+    secret.prop.visible = !found;
+    secret.interaction.disabled = found;
+    secret.interaction.marker.visible = !found;
+  }
+}
+function collectSecret(id) {
+  const secret = SECRETS.find(s => s.id === id);
+  if (!secret) return;
+  const quests = state.collectSecret(id);
+  if (!quests) return;
+  syncSecrets();
+  audio.sfx('levelup');
+  mode = 'busy';
+  player.setPose('flex');
+  ui.dialog(`<div class="eyebrow">SECRET ${state.career.secrets.length} / 3</div><h2>${secret.title}</h2><p>${secret.text}</p>${effectsHtml({ money: 15 })}<p>+40 XP${quests.length ? ' · Golden hour complete: +150 XP / $75' : ''}</p>`, [
+    { label: 'Keep exploring', cls: 'primary', cb: () => { player.setPose('idle'); mode = 'play'; } },
+  ]);
+}
+function recover(id) {
+  const reward = state.recover(id);
+  if (!reward) { ui.toast('Already recovered here today. Sleep to start a new day.'); return; }
+  breath = 100;
+  mode = 'busy';
+  if (id === 'rest') player.setPose('sit');
+  audio.sfx('good');
+  ui.dialog(`<div class="eyebrow">RECOVERY IS PART OF TRAINING</div><h2>${id === 'water' ? 'Stay hydrated' : 'A moment to reset'}</h2><p>${id === 'water' ? 'Fresh water, steady breathing. Ready for the next set.' : 'Take in the city. Tomorrow’s champion needs a break today.'}</p>${effectsHtml(reward)}<p class="scores">Free · Once per day · Sprint fully restored</p>`, [
+    { label: 'Back to it', cls: 'primary', key: 'Escape', cb: () => { player.setPose('idle'); mode = 'play'; } },
+  ], { clear: true });
+}
+function rewardHtml(reward) {
+  if (!reward) return '';
+  return `<div class="league-card"><b>+${reward.xp} XP</b>${reward.prize ? ` · +$${reward.prize}` : ''}${reward.personalBest ? ' · PERSONAL BEST' : ''}${reward.medal ? '<br>League medal earned! First-win bonus included.' : ''}${reward.daily ? '<br>Daily hat-trick: +60 XP and $25 included.' : ''}${reward.quests.map(q => `<br>${q.title}: +${q.xp} XP / $${q.money}`).join('')}</div>`;
+}
+function announceReward(reward) {
+  if (reward?.levelUp) ui.toast(`LEVEL ${state.level} · ${rankFor(state.level)} · Better endurance unlocked`, 'good');
+}
+function showJournal() {
+  if (mode !== 'play' || paused || race) return;
+  keys.clear();
+  mode = 'busy';
+  const c = state.career;
+  const daily = c.daily.day === state.day ? Math.min(3, c.daily.sessions) : 0;
+  const best = ['basket', 'boxing', 'run'].map(id => `${{ basket: 'Basket', boxing: 'Boxing', run: 'Circuit' }[id]} ${Math.round((c.best[id] || 0) * 100)}% · ${c.medals[id]?.length || 0}/3 medals`).join('<br>');
+  const box = ui.dialog(`<div class="eyebrow">YOUR STORY / OAKSIDE CITY</div><div class="journal-head"><h2>${rankFor(state.level)}</h2><b>LV ${state.level}</b></div>
+    <p>${c.xp} XP · ${c.sessions} sessions · ${c.secrets.length}/3 secrets</p>
+    <div class="league-card"><b>Daily hat-trick · ${daily}/3</b><br>Finish any three training sessions today: +60 XP and $25.<br><br>${best}</div>
+    <div class="quest-list">${QUESTS.map(q => `<div class="quest ${c.completed.includes(q.id) ? 'done' : ''}"><strong>${q.title}</strong><small>${q.desc}</small><span>${c.completed.includes(q.id) ? '✓' : `${questProgress(c, q)}/${q.target}`}</span></div>`).join('')}</div>
+    <p style="margin-top:18px">Pin a destination on your map:</p><div class="destination-list">${Object.entries(DESTINATIONS).map(([id, d]) => `<button class="btn ${id === waypoint ? 'primary' : ''}" data-destination="${id}">${d.label} ↗</button>`).join('')}</div>
+    <p class="scores">Level 3: Club league · Level 5: Pro league. Change unlocked outfits at your home mirror.<br>Golden dumbbell clues: behind home, behind the gym, and the southwest garden.</p>`, [
+    { label: 'Back to the city', cls: 'primary', key: 'Escape', cb: () => { mode = 'play'; } },
+  ], { cls: 'journalbox' });
+  box.querySelectorAll('[data-destination]').forEach(button => {
+    button.onclick = () => {
+      waypoint = button.dataset.destination;
+      ui.close(); mode = 'play'; saveGame();
+      ui.toast(`Pinned: ${DESTINATIONS[waypoint].label}. ${place.name === 'city' ? 'Follow the highlighted map icon.' : 'Exit this area to reach the city.'}`, 'good');
+    };
+  });
+}
+const SPORT_NAMES = { basket: 'Basketball · five spots', boxing: 'Boxing · read & react', run: 'Riverside circuit' };
+function sportDialog(id) {
+  if (place.name !== 'park' || !Object.hasOwn(SPORT_NAMES, id)) return;
+  const cost = id === 'run' ? 12 : 18;
+  if (state.stamina <= cost) { ui.toast(`You need more than ${cost} energy. Try the bench or the fountain.`, 'bad'); return; }
+  mode = 'busy';
+  const detail = id === 'run' ? 'Sprint through eight checkpoints around the track. Manage your breath: release RUN to recover. The glowing gate and map mark the next checkpoint.' : id === 'basket' ? 'Five shots, five positions. Hold to load your shot, release in the sweet spot, and watch the ball fly.' : 'Read the combination. Jab, cross, and duck the incoming bag on the beat. Precision builds your combo.';
+  ui.dialog(`<div class="eyebrow">RIVERSIDE ATHLETIC CLUB</div><h2>${SPORT_NAMES[id]}</h2><p>${detail}</p>
+    <div class="league-card">Energy: ${cost} · Best: ${Math.round((state.career.best[id] || 0) * 100)}%<br>Unlock harder leagues by earning XP. First medal in each league earns a cash bonus.</div>`, [
+    ...LEAGUES.map((league, i) => ({ label: `${league.name}<small>${state.level < league.level ? `Unlocks at level ${league.level}` : `${Math.round(league.target * 100)}% for medal · +$${league.bonus}`}</small>`, cls: i === 0 ? 'primary' : '', disabled: state.level < league.level, cb: () => startSport(id, i) })),
+    { label: 'Later', key: 'Escape', cb: () => { mode = 'play'; } },
+  ]);
+}
+function sportResult(id, score, tier, cost) {
+  endMinigame();
+  const gain = Math.round(2 + score * (5 + tier * 2));
+  const stats = id === 'basket' ? { legs: gain, chest: Math.ceil(gain / 2) } : id === 'boxing' ? { chest: gain, back: gain } : { legs: gain, back: Math.ceil(gain / 2) };
+  state.apply({ ...stats, happiness: 4 + Math.round(score * 6) });
+  const reward = state.completeActivity(id, score, tier);
+  announceReward(reward);
+  mode = 'busy';
+  audio.sfx(score >= 0.5 ? 'levelup' : 'good');
+  ui.dialog(`<div class="eyebrow">${LEAGUES[tier].name.toUpperCase()} LEAGUE / SESSION COMPLETE</div><h2>${SPORT_NAMES[id]}</h2><div class="result-score">${Math.round(score * 100)}<small>%</small></div><p>${score >= 0.8 ? 'You owned that session.' : score >= 0.5 ? 'Finding your rhythm. Keep it up.' : 'A start worth building on. Try again!'}</p>${effectsHtml({ ...stats, stamina: -cost, happiness: 4 + Math.round(score * 6) })}${rewardHtml(reward)}`, [
+    { label: 'Continue', cls: 'primary', cb: () => { mode = 'play'; checkEnd(); } },
+  ]);
+}
+function startSport(id, tier = 0) {
+  if (place.name !== 'park' || !Object.hasOwn(SPORT_NAMES, id) || !LEAGUES[tier] || state.level < LEAGUES[tier].level) return;
+  const cost = id === 'run' ? 12 : 18;
+  if (state.stamina <= cost) return;
+  ui.close();
+  state.apply({ stamina: -cost });
+  if (id === 'run') { startRace(tier, cost); return; }
+  const park = place;
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  if (id === 'basket') {
+    const ball = park.basket.ball;
+    const rest = ball.position.clone();
+    let shotIndex = 0;
+    const release = new THREE.Vector3(), end = new THREE.Vector3();
+    beginMinigame(() => { pos.set(-10, 0, -7); heading = Math.PI; }, V(-21, 6.2, 1), V(-10, 1.8, -10), null);
+    const restore = () => { ball.position.copy(rest); ball.rotation.set(0, 0, 0); };
+    sessionCancel = () => { restore(); endMinigame(); };
+    minigame = basketballGame({ ui, audio, char: player,
+      spot(i) { shotIndex = i; const [x, z] = SHOT_SPOTS[i]; pos.set(x, 0, z); heading = Math.atan2(-10 - x, -14.65 - z); },
+      animate(power, flight, score, shooting) {
+        if (!shooting) {
+          player.setPose('shoot', power * 0.65);
+          ball.position.set(pos.x + Math.sin(heading) * 0.4, 1.4 + power * 0.5, pos.z + Math.cos(heading) * 0.4);
+          return;
+        }
+        player.setPose('shoot', Math.max(0, 1 - flight * 0.25));
+        release.set(pos.x, 2.1, pos.z);
+        end.copy(park.basket.hoop);
+        if (score < 0.7) { end.x += (shotIndex % 2 ? -1 : 1) * 0.85; end.z += 0.6; }
+        const t = Math.min(1, flight / 0.72);
+        ball.position.lerpVectors(release, end, t);
+        ball.position.y += Math.sin(t * Math.PI) * 2.8;
+        if (flight > 0.72) {
+          const drop = (flight - 0.72) / 0.28;
+          ball.position.y = Math.max(0.3, end.y - drop * drop * 4);
+          if (score < 0.7) ball.position.x += drop;
+        }
+        ball.rotation.x = flight * 8;
+      },
+      done(score) { restore(); sportResult(id, score, tier, cost); },
+    }, tier);
+  } else {
+    const bag = park.boxing.bag;
+    let impact = 0, swing = 0;
+    const updateBag = dt => { impact *= Math.exp(-dt * 5); bag.rotation.x = swing * 0.24 + Math.sin(elapsed * 17) * Math.abs(impact) * 0.08; bag.rotation.z = impact * 0.22; };
+    beginMinigame(() => { pos.set(9, 0, -10.8); heading = Math.PI; player.setPose('guard'); }, V(14, 2.8, -7.5), V(9, 1.7, -11), null);
+    park.updaters.push(updateBag);
+    const restore = () => { const index = park.updaters.indexOf(updateBag); if (index !== -1) park.updaters.splice(index, 1); bag.rotation.set(0, 0, 0); };
+    sessionCancel = () => { restore(); endMinigame(); };
+    minigame = boxingGame({ ui, audio, char: player, impact: n => { impact = n; }, telegraph: n => { swing = n; }, done(score) { restore(); sportResult(id, score, tier, cost); } }, tier);
+  }
+}
+function startRace(tier, cost) {
+  saved.pos.copy(pos); saved.heading = heading;
+  pos.set(-15, 0, 16); heading = -Math.PI / 2;
+  cam.yaw = Math.PI / 2; cam.snap = true;
+  keys.clear(); speed = 0; breath = 100; winded = false;
+  race = { tier, cost, countdown: 3, time: 0, checkpoint: 0, limit: [52, 44, 37][tier] };
+  mode = 'play';
+  place.runGate.visible = true;
+  place.runGate.position.set(...[RUN_ROUTE[0][0], 0, RUN_ROUTE[0][1]]);
+  document.getElementById('race-hud').classList.remove('hidden');
+  ui.prompt(null);
+}
+function updateRace(dt) {
+  const r = race;
+  if (!r) return;
+  const clock = document.getElementById('race-time');
+  document.getElementById('race-progress').textContent = `GATE ${Math.min(8, r.checkpoint + 1)} / 8 · SHIFT / RUN to sprint`;
+  if (r.countdown > 0) { r.countdown -= dt; clock.textContent = r.countdown > 0 ? Math.ceil(r.countdown) : 'GO!'; return; }
+  r.time += dt;
+  clock.textContent = `${Math.max(0, r.limit - r.time).toFixed(1)}s`;
+  const [x, z] = RUN_ROUTE[r.checkpoint];
+  if (Math.hypot(pos.x - x, pos.z - z) < 1.7) {
+    r.checkpoint++;
+    audio.sfx('coin');
+    breath = Math.min(100, breath + 8);
+    if (r.checkpoint < RUN_ROUTE.length) { const next = RUN_ROUTE[r.checkpoint]; place.runGate.position.set(next[0], 0, next[1]); }
+  }
+  if (r.checkpoint === RUN_ROUTE.length || r.time >= r.limit) {
+    const finished = r.checkpoint === RUN_ROUTE.length;
+    const score = finished ? Math.max(0.5, Math.min(1, 0.6 + (r.limit - r.time) / 22)) : r.checkpoint / 8 * 0.45;
+    place.runGate.visible = false;
+    document.getElementById('race-hud').classList.add('hidden');
+    race = null;
+    sportResult('run', score, r.tier, r.cost);
+  }
 }
 
 // ---------------------------------------------------------------- GAME OVER
@@ -681,24 +983,44 @@ function endGame(win, reason) {
 // ---------------------------------------------------------------- MENU
 function serialize() {
   const { listeners, ...data } = state;
-  return data;
+  const location = mode === 'minigame' && cam.fixed ? saved.pos : pos;
+  return { ...data, version: 2, location: { place: place.name, x: location.x, z: location.z, rot: mode === 'minigame' && cam.fixed ? saved.heading : heading }, waypoint };
+
 }
 
 function newGame(diff, data = null) {
-  state = new GameState(diff);
-  if (data) Object.assign(state, data, { listeners: state.listeners });
+  clearTimeout(saveTimer);
+  state = data ? GameState.fromSave(data) : new GameState(diff);
+  ui.close();
+  paused = false;
+  document.getElementById('pause').classList.add('hidden');
+  sessionCancel = minigame = race = null;
+  document.body.classList.remove('in-session');
+  breath = 100; winded = false;
+  waypoint = Object.hasOwn(DESTINATIONS, data?.waypoint) ? data.waypoint : 'gym';
   state.onChange((s) => {
     ui.update(s);
     player.setMuscles(s.legs, s.chest, s.back);
+    player.setOutfit(OUTFITS[s.career.outfit]);
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveGame, 250);
   });
   state.emit();
-  tvDay = -1;
-  broDay = -1;
   ui.showHud(true);
-  setPlace('home');
+  const loc = data?.location;
+  const id = loc && Object.hasOwn(places, loc.place) ? loc.place : 'home';
+  setPlace(id);
+  if (loc && Number.isFinite(loc.x) && Number.isFinite(loc.z)) {
+    pos.set(loc.x, 0, loc.z);
+    place.collide(pos); place.collide(pos);
+    heading = Number.isFinite(loc.rot) ? loc.rot : place.spawn.rot;
+    cam.yaw = heading + Math.PI;
+  }
   syncSpotify();
   mode = 'play';
-  ui.toast('Goal: get legs, chest and back to 100', 'good');
+  if (checkEnd()) return;
+  saveGame();
+  ui.toast(data ? 'Welcome back. Your city is waiting.' : 'Your story starts here. Follow your first challenge [J].', 'good');
   if (!isTouch) setTimeout(() => ui.toast('Press H to see the controls'), 1500);
 }
 
@@ -707,6 +1029,8 @@ function controlsHtml() {
     return `<div class="controls">
     <kbd>Left stick</kbd><span>Move</span>
     <kbd>E button</kbd><span>Interact</span>
+    <kbd>RUN / ↑</kbd><span>Hold to sprint / Jump</span>
+    <kbd>Journal / Pause</kbd><span>Career & destinations / Pause</span>
     <kbd>Drag the screen</kbd><span>Rotate the camera</span>
     <kbd>Food buttons</kbd><span>Eat from your inventory</span>
     <kbd>Radio button</kbd><span>Switch the gym radio station</span>
@@ -715,7 +1039,9 @@ function controlsHtml() {
   }
   return `<div class="controls">
     <kbd>WASD / Arrows</kbd><span>Move (hold Shift to run)</span>
-    <kbd>E / Space</kbd><span>Interact</span>
+    <kbd>E / Enter</kbd><span>Interact with the highlighted object</span>
+    <kbd>Space</kbd><span>Jump · Hold Shift to sprint</span>
+    <kbd>J / Esc</kbd><span>Career & destinations / Pause</span>
     <kbd>Mouse drag</kbd><span>Rotate the camera, wheel to zoom</span>
     <kbd>1 2 3</kbd><span>Eat from your inventory</span>
     <kbd>M</kbd><span>Music on/off</span>
@@ -725,14 +1051,18 @@ function controlsHtml() {
 }
 
 function showHelp() {
+  if (mode !== 'play' || paused || race) return;
+  keys.clear();
   mode = 'busy';
   ui.dialog(`<h2>Controls</h2>${controlsHtml()}
-    <p>Home: sleep, eat, TV · Gym: train · Supermarket: buy food · Bank: work or invest</p>
-    <p>It's game over if energy or mood drop to 0, or if you run out of days.</p>`,
+    <p>Home: sleep, TV, outfits · Gym: train · Park: basketball, boxing, circuit · Market: food · Bank: work</p>
+    <p>Grow legs, chest and back to 100 before your days run out. It’s game over if energy or mood reaches 0. Sprint breath recovers automatically; food and sleep restore training energy.</p>`,
   [{ label: 'Ok', cls: 'primary', cb: () => { mode = 'play'; } }]);
 }
 
 function showTitle() {
+  clearTimeout(saveTimer);
+  keys.clear();
   mode = 'title';
   ui.showHud(false);
   ui.prompt(null);
@@ -752,10 +1082,10 @@ function showTitle() {
       cb: () => { audio.init(); newGame(save.difficulty, save); },
     });
   }
-  ui.dialog(`<h1 class="title">GYM LIFE 3D</h1>
-    <p>Become the biggest bodybuilder in town. Train, eat well, earn money and keep your spirits up.</p>
-    ${controlsHtml().replace('class="controls"', 'class="controls title-controls"')}
-    <p style="color:var(--muted)">Choose the difficulty:</p>`, btns);
+  ui.dialog(`<div class="eyebrow">OAKSIDE CITY / A NEW CHAPTER</div><h1 class="title">STREET TO<br><span>LEGEND.</span></h1>
+    <p class="tagline">Your city. Your training ground. Build your body, find your rhythm and make a name for yourself — one perfect rep at a time.</p>
+    <div class="title-features"><span>6 SPORTS & WORKOUTS</span><span>3 LEAGUES</span><span>ONE LIVING CITY</span></div>
+    <p style="font-size:11px;color:var(--muted)">REACH 100 IN EVERY MUSCLE · Progress saves automatically</p>`, btns, { cls: 'titlebox' });
   const credits = document.createElement('p');
   credits.className = 'scores';
   credits.innerHTML = 'Character model: <a href="https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1" target="_blank" rel="noopener">"Male Body" by Alexander Antipov</a>, <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (rigged and modified)';
@@ -773,15 +1103,17 @@ let lastTime = performance.now();
 let elapsed = 0;
 const tmp = new THREE.Vector3();
 const lookTmp = new THREE.Vector3();
-let fpsFrames = 0, fpsTime = 0, fpsChecked = false;
+let fpsFrames = 0, fpsTime = 0, fpsCooldown = 3;
+const wantCamera = new THREE.Vector3();
+let lastPromptTarget = null;
 let stepTimer = 0;
 
 const touchEl = document.getElementById('touch');
 function update(dt, t) {
   // on-screen joystick and E button only while walking around
-  if (isTouch) touchEl.classList.toggle('hidden', !(mode === 'play' && !ui.isOpen()));
+  if (isTouch) touchEl.classList.toggle('hidden', !(mode === 'play' && !ui.isOpen() && !paused));
   let mx = 0, mz = 0;
-  if (mode === 'play') {
+  if (mode === 'play' && (!race || race.countdown <= 0)) {
     if (keys.has('w') || keys.has('arrowup')) mz -= 1;
     if (keys.has('s') || keys.has('arrowdown')) mz += 1;
     if (keys.has('a') || keys.has('arrowleft')) mx -= 1;
@@ -790,8 +1122,14 @@ function update(dt, t) {
     mz += touchMove.y;
   }
   const len = Math.hypot(mx, mz);
-  const run = keys.has('shift') ? 1.6 : 1;
-  const target = len > 0.1 ? Math.min(1, len) * 5 * run : 0;
+  if (winded && breath > 28) winded = false;
+  const running = mode === 'play' && len > 0.1 && (keys.has('shift') || touchSprint) && breath > 0 && !winded;
+  if (running) { breath = Math.max(0, breath - dt * 17); breathDelay = 0.7; if (breath === 0) winded = true; }
+  else if ((breathDelay -= dt) <= 0) breath = Math.min(100, breath + dt * 24);
+  document.getElementById('b-breath').style.transform = `scaleX(${breath / 100})`;
+  document.getElementById('b-breath').style.transformOrigin = 'left';
+  const run = running ? 1.75 + Math.min(0.15, (state?.level || 1) * 0.02) : 1;
+  const target = len > 0.1 ? Math.min(1, len) * 4.7 * run : 0;
   speed += (target - speed) * Math.min(1, dt * 10);
   if (len > 0.1) {
     // movement relative to the camera
@@ -802,13 +1140,24 @@ function update(dt, t) {
     let diff = want - heading;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     heading += diff * Math.min(1, dt * 12);
-    pos.x += dx * speed * dt;
-    pos.z += dz * speed * dt;
-    place.collide(pos);
+    const steps = Math.max(1, Math.ceil(speed * dt / 0.18));
+    for (let i = 0; i < steps; i++) {
+      pos.x += dx * speed * dt / steps;
+      pos.z += dz * speed * dt / steps;
+      place.collide(pos);
+    }
     stepTimer -= dt * speed;
     if (stepTimer <= 0) { stepTimer = 2.2; audio.sfx('step'); }
   }
+  if (jumpHeight > 0 || jumpVelocity > 0) {
+    jumpVelocity -= dt * 19;
+    jumpHeight = Math.max(0, jumpHeight + jumpVelocity * dt);
+    if (jumpHeight === 0) { jumpVelocity = 0; player.setPose('idle'); audio.sfx('step'); }
+    else player.setPose('jump');
+  }
+  if (minigame) minigame.update(dt);
   player.root.position.copy(pos);
+  player.root.position.y += jumpHeight;
   player.root.rotation.y = heading;
   if (player.pose === 'idle' || player.pose === 'walk') player.setPose(speed > 0.2 ? 'walk' : 'idle');
   player.update(dt, speed);
@@ -816,9 +1165,30 @@ function update(dt, t) {
 
   // interaction prompt
   if (mode === 'play') {
-    const it = nearest();
+    const it = race ? null : nearest();
+    if (it !== lastPromptTarget) {
+      if (lastPromptTarget) { lastPromptTarget.ring.material.color.setHex(0xffffff); lastPromptTarget.marker.scale.setScalar(1); }
+      if (it) { it.ring.material.color.setHex(0xd4f29b); it.marker.scale.setScalar(1.25); }
+      lastPromptTarget = it;
+    }
     ui.prompt(it ? it.label : null);
+    if (race) updateRace(dt);
   }
+  if (state && mode !== 'title') {
+    minimap.draw(dt, place, pos, heading, waypoint, race ? RUN_ROUTE[race.checkpoint] : null);
+    const target = place.name === 'city' ? DESTINATIONS[waypoint] : null;
+    document.getElementById('map-waypoint').textContent = target ? `${target.label} · ${Math.round(Math.hypot(pos.x - target.x, pos.z - target.z))} m` : place.name === waypoint ? 'You have arrived' : 'Return to the city to follow your pin';
+  }
+
+  // Reserve the unobscured portion of the viewport for the 3D action.
+  const framing = mode === 'minigame' && cam.fixed;
+  const portraitSession = framing && window.innerHeight > window.innerWidth;
+  if (framing) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const ox = portraitSession ? 0 : w * (w > 900 ? 0.14 : 0.23);
+    const oy = portraitSession ? h * 0.26 : 0;
+    if (!camera.view?.enabled || camera.view.offsetX !== ox || camera.view.offsetY !== oy || camera.view.fullWidth !== w || camera.view.fullHeight !== h) camera.setViewOffset(w, h, ox, oy, w, h);
+  } else if (camera.view?.enabled) camera.clearViewOffset();
 
   // camera
   if (mode === 'title') {
@@ -827,19 +1197,14 @@ function update(dt, t) {
     camera.lookAt(0, 3, 0);
   } else if (cam.fixed) {
     camera.position.lerp(cam.fixed.pos, Math.min(1, dt * 5));
-    // on wide screens the minigame panel sits on the right: shift the character to the left
     const look = lookTmp.copy(cam.fixed.look);
-    if (window.innerWidth > 900) {
-      const right = occ.subVectors(cam.fixed.look, cam.fixed.pos).cross(camera.up).normalize();
-      look.addScaledVector(right, 1.3);
-    }
     tmp.copy(cam.target).lerp(look, Math.min(1, dt * 5));
     cam.target.copy(tmp);
     camera.lookAt(cam.target);
   } else {
     const d = place.camDist * cam.zoom;
     cam.target.lerp(tmp.set(pos.x, 1.3, pos.z), Math.min(1, dt * 8));
-    const want = new THREE.Vector3(
+    const want = wantCamera.set(
       cam.target.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * d,
       cam.target.y + Math.sin(cam.pitch) * d + (place.camHeight - 5) * 0.4,
       cam.target.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * d,
@@ -858,7 +1223,8 @@ function update(dt, t) {
     sky.position.copy(camera.position);
   }
 
-  if (minigame) minigame.update(dt);
+  const fov = portraitSession ? 64 : running ? 57 : 50;
+  if (Math.abs(camera.fov - fov) > 0.02) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
 }
 
 // Move the camera closer when a building is between it and the player
@@ -879,8 +1245,10 @@ function avoidOcclusion(from, to) {
 
 function loop() {
   const now = performance.now();
-  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  const wallDt = (now - lastTime) / 1000;
+  const dt = Math.min(0.05, wallDt);
   lastTime = now;
+  if (paused || document.hidden) { requestAnimationFrame(loop); return; }
   elapsed += dt;
   const t = elapsed;
   update(dt, t);
@@ -892,19 +1260,21 @@ function loop() {
     renderer.render(place.scene, camera);
   }
 
-  // if the computer struggles, step down the quality automatically (unless chosen by the user)
-  if (!fpsChecked && mode === 'play') {
+  // Measure real wall time, not clamped simulation time. Recheck after travel
+  // and heavy scenes, with cooldown so shader compilation cannot cause a cascade.
+  fpsCooldown -= wallDt;
+  if (mode === 'play' && fpsCooldown <= 0 && !store.get(QUALITY_KEY)) {
     fpsFrames++;
-    fpsTime += dt;
-    if (fpsTime > 4) {
+    fpsTime += wallDt;
+    if (fpsTime >= 4) {
       const fps = fpsFrames / fpsTime;
-      fpsFrames = 0;
-      fpsTime = 0;
-      if (fps < 28 && quality !== 'low' && !store.get(QUALITY_KEY)) {
+      fpsFrames = fpsTime = 0;
+      fpsCooldown = 6;
+      if (fps < 32 && quality !== 'low') {
         quality = QUALITIES[QUALITIES.indexOf(quality) - 1];
         applyQuality();
-        ui.toast(`Graphics lowered to ${quality} for smoother play (press G to change)`);
-      } else fpsChecked = true;
+        ui.toast(`Graphics adjusted to ${quality} for smoother play`);
+      }
     }
   }
   requestAnimationFrame(loop);
@@ -914,6 +1284,10 @@ function loop() {
 window.__gym = {
   get state() { return state; }, get mode() { return mode; }, get place() { return place; },
   pos, cam, player, audio, travel, startWorkout, startWork, startPlane, mirror, encounter, sleep,
+  startSport, sportDialog, showJournal, pauseGame, resumeGame, cancelSession, interact, saveGame, newGame,
+  get paused() { return paused; }, get race() { return race; }, get quality() { return quality; },
+  get minigame() { return minigame; }, get breath() { return breath; },
+  get rendererInfo() { return { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }; },
 };
 
 showTitle();
